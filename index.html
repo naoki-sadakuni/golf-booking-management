@@ -96,6 +96,12 @@
     margin-bottom: 14px;
   }
   .full-width { grid-column: 1 / -1; }
+  .players-col {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
   .checkbox-row {
     display: flex;
     align-items: center;
@@ -182,8 +188,8 @@
   .empty {
     text-align: center;
     color: var(--muted);
-    font-size: 13px;
     padding: 30px 0;
+    font-size: 13px;
   }
   .gcal-row {
     display: flex;
@@ -245,6 +251,10 @@
         <label for="courseCustom">ゴルフ場名を入力</label>
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
+      <div class="full-width">
+        <label for="courseNameInput">コース名</label>
+        <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
+      </div>
       <div>
         <label for="playDate">プレー日</label>
         <input type="date" id="playDate">
@@ -254,20 +264,35 @@
         <input type="time" id="startTime">
       </div>
       <div>
-        <label for="player1">プレーヤー1</label>
-        <input type="text" id="player1" placeholder="例: 定国直樹">
+        <label for="startNine">スタート</label>
+        <select id="startNine">
+          <option value="">選択してください</option>
+          <option value="OUT">OUT</option>
+          <option value="IN">IN</option>
+          <option value="その他">その他</option>
+        </select>
       </div>
       <div>
-        <label for="player2">プレーヤー2</label>
-        <input type="text" id="player2" placeholder="例: 山田さん">
+        <label for="caddieType">セルフ・キャディ</label>
+        <select id="caddieType">
+          <option value="">選択してください</option>
+          <option value="セルフ">セルフ</option>
+          <option value="キャディ付き">キャディ付き</option>
+        </select>
       </div>
-      <div>
-        <label for="player3">プレーヤー3</label>
-        <input type="text" id="player3" placeholder="例: 佐藤さん">
-      </div>
-      <div>
-        <label for="player4">プレーヤー4</label>
-        <input type="text" id="player4" placeholder="例: 鈴木さん">
+      <div class="players-col">
+        <div>
+          <label for="player1">同伴者1</label>
+          <input type="text" id="player1" placeholder="例: 山田さん">
+        </div>
+        <div>
+          <label for="player2">同伴者2</label>
+          <input type="text" id="player2" placeholder="例: 佐藤さん">
+        </div>
+        <div>
+          <label for="player3">同伴者3</label>
+          <input type="text" id="player3" placeholder="例: 鈴木さん">
+        </div>
       </div>
       <div class="full-width">
         <div class="checkbox-row">
@@ -313,6 +338,9 @@ let currentCourseFilter = "";
 const courseSelect = document.getElementById("courseSelect");
 const courseCustomWrap = document.getElementById("courseCustomWrap");
 const courseCustomInput = document.getElementById("courseCustom");
+const courseNameInput = document.getElementById("courseNameInput");
+const startNineSelect = document.getElementById("startNine");
+const caddieTypeSelect = document.getElementById("caddieType");
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
@@ -420,12 +448,19 @@ function toEventResource(r) {
   const pad = n => String(n).padStart(2, "0");
   const endDateTime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
   const courseName = r.course && r.course.trim() ? r.course.trim() : "ゴルフ場未設定";
-  let description = `ゴルフ場: ${courseName}\nプレーヤー: ${playersLine(r)}`;
+  const summaryParts = [courseName];
+  if (r.courseName && r.courseName.trim()) summaryParts.push(r.courseName.trim());
+  if (r.startNine) summaryParts.push(r.startNine);
+  let description = `ゴルフ場: ${courseName}`;
+  description += `\nコース名: ${r.courseName && r.courseName.trim() ? r.courseName.trim() : "なし"}`;
+  description += `\nスタート: ${r.startNine || "未設定"}`;
+  description += `\nキャディ: ${r.caddieType || "未設定"}`;
+  description += `\nプレーヤー: ${playersLine(r)}`;
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
   return {
-    summary: `${courseName} ゴルフ ${r.startTime}〜`,
+    summary: `${summaryParts.join(" ")} ${r.startTime}〜`,
     description,
     start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
     end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" },
@@ -476,24 +511,36 @@ async function deleteFromCalendar(eventId) {
 
 function parseEventDescription(desc) {
   const lines = (desc || "").split("\n");
-  let players = ["", "", "", ""];
+  let players = ["", "", ""];
   let timeChangeRequested = false;
   let timeChangeNote = "";
   let course = "";
+  let courseName = "";
+  let startNine = "";
+  let caddieType = "";
   lines.forEach(line => {
     if (line.startsWith("ゴルフ場: ")) {
       const val = line.replace("ゴルフ場: ", "").trim();
       course = val === "ゴルフ場未設定" ? "" : val;
+    } else if (line.startsWith("コース名: ")) {
+      const val = line.replace("コース名: ", "").trim();
+      courseName = val === "なし" ? "" : val;
+    } else if (line.startsWith("スタート: ")) {
+      const val = line.replace("スタート: ", "").trim();
+      startNine = val === "未設定" ? "" : val;
+    } else if (line.startsWith("キャディ: ")) {
+      const val = line.replace("キャディ: ", "").trim();
+      caddieType = val === "未設定" ? "" : val;
     } else if (line.startsWith("プレーヤー: ")) {
       const val = line.replace("プレーヤー: ", "").trim();
       const names = val === "なし" ? [] : val.split("、");
-      players = [names[0] || "", names[1] || "", names[2] || "", names[3] || ""];
+      players = [names[0] || "", names[1] || "", names[2] || ""];
     } else if (line.startsWith("時間変更依頼: ")) {
       timeChangeRequested = true;
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, players, timeChangeRequested, timeChangeNote };
+  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -541,6 +588,9 @@ async function syncFromCalendar() {
         existing.playDate = remoteDate;
         existing.startTime = remoteTime;
         existing.course = parsed.course;
+        existing.courseName = parsed.courseName;
+        existing.startNine = parsed.startNine;
+        existing.caddieType = parsed.caddieType;
         existing.players = parsed.players;
         existing.timeChangeRequested = parsed.timeChangeRequested;
         existing.timeChangeNote = parsed.timeChangeNote;
@@ -551,6 +601,9 @@ async function syncFromCalendar() {
           playDate: remoteDate,
           startTime: remoteTime,
           course: parsed.course,
+          courseName: parsed.courseName,
+          startNine: parsed.startNine,
+          caddieType: parsed.caddieType,
           players: parsed.players,
           timeChangeRequested: parsed.timeChangeRequested,
           timeChangeNote: parsed.timeChangeNote
@@ -615,13 +668,15 @@ timeChangeCheckbox.addEventListener("change", () => {
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
+  const courseName = courseNameInput.value.trim();
   const playDate = document.getElementById("playDate").value;
   const startTime = document.getElementById("startTime").value;
+  const startNine = startNineSelect.value;
+  const caddieType = caddieTypeSelect.value;
   const players = [
     document.getElementById("player1").value.trim(),
     document.getElementById("player2").value.trim(),
-    document.getElementById("player3").value.trim(),
-    document.getElementById("player4").value.trim()
+    document.getElementById("player3").value.trim()
   ];
   const timeChangeRequested = timeChangeCheckbox.checked;
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
@@ -646,13 +701,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, playDate, startTime, players, timeChangeRequested, timeChangeNote };
+      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, playDate, startTime, players, timeChangeRequested, timeChangeNote, gcalEventId: null
+      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, gcalEventId: null
     };
     list.push(targetReservation);
   }
@@ -670,17 +725,17 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 
 document.getElementById("cancelBtn").addEventListener("click", resetForm);
 
-const DEFAULT_PLAYER1 = "定国直樹";
-
 function resetForm() {
   editingId = null;
   setCourseValue("");
+  courseNameInput.value = "";
   document.getElementById("playDate").value = "";
   document.getElementById("startTime").value = "";
-  document.getElementById("player1").value = DEFAULT_PLAYER1;
+  startNineSelect.value = "";
+  caddieTypeSelect.value = "";
+  document.getElementById("player1").value = "";
   document.getElementById("player2").value = "";
   document.getElementById("player3").value = "";
-  document.getElementById("player4").value = "";
   timeChangeCheckbox.checked = false;
   document.getElementById("timeChangeNote").value = "";
   timeChangeNoteWrap.style.display = "none";
@@ -695,13 +750,15 @@ function startEdit(id) {
   if (!r) return;
   editingId = id;
   setCourseValue(r.course || "");
+  courseNameInput.value = r.courseName || "";
   document.getElementById("playDate").value = r.playDate;
   document.getElementById("startTime").value = r.startTime;
-  const players = r.players || [r.companions || "", "", "", ""];
+  startNineSelect.value = r.startNine || "";
+  caddieTypeSelect.value = r.caddieType || "";
+  const players = r.players || [r.companions || "", "", ""];
   document.getElementById("player1").value = players[0] || "";
   document.getElementById("player2").value = players[1] || "";
   document.getElementById("player3").value = players[2] || "";
-  document.getElementById("player4").value = players[3] || "";
   timeChangeCheckbox.checked = !!r.timeChangeRequested;
   document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
@@ -771,10 +828,12 @@ function render() {
     if (r.course) {
       const courseTag = document.createElement("span");
       courseTag.className = "course-tag";
-      courseTag.textContent = r.course;
+      courseTag.textContent = r.courseName ? `${r.course}（${r.courseName}）` : r.course;
       dateLine.appendChild(courseTag);
     }
-    dateLine.appendChild(document.createTextNode(`${formatDateLabel(r.playDate)} ${r.startTime}〜`));
+    let dateText = `${formatDateLabel(r.playDate)} ${r.startTime}〜`;
+    if (r.startNine) dateText += `（${r.startNine}）`;
+    dateLine.appendChild(document.createTextNode(dateText));
     if (r.timeChangeRequested) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -791,7 +850,9 @@ function render() {
     const subLine = document.createElement("div");
     subLine.className = "sub-line";
     const playerNames = (r.players || [r.companions || ""]).filter(n => n && n.trim());
-    let subText = playerNames.length ? `プレーヤー: ${playerNames.join("、")}` : "プレーヤー: なし";
+    let subText = r.caddieType ? `${r.caddieType}` : "";
+    subText += subText ? "　／　" : "";
+    subText += playerNames.length ? `同伴者: ${playerNames.join("、")}` : "同伴者: なし";
     if (r.timeChangeRequested && r.timeChangeNote) {
       subText += `　／　${r.timeChangeNote}`;
     }
@@ -822,7 +883,6 @@ function render() {
   });
 }
 
-document.getElementById("player1").value = DEFAULT_PLAYER1;
 updateGcalStatusUI();
 initGoogleAuth();
 render();
