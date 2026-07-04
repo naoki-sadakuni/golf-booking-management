@@ -219,7 +219,7 @@
 
 <header>
   <h1>ゴルフ予約管理</h1>
-  <p>チェックメイトCC・太平洋クラブ・横浜カントリークラブなど、複数のゴルフ場の予約をまとめて記録・管理</p>
+  <p>チェックメイトCC・横浜CC・太平洋クラブなど、複数のゴルフ場の予約をまとめて記録・管理</p>
 </header>
 
 <main>
@@ -242,8 +242,8 @@
         <select id="courseSelect">
           <option value="">選択してください</option>
           <option value="チェックメイトCC">チェックメイトCC</option>
+          <option value="横浜CC">横浜CC</option>
           <option value="太平洋クラブ">太平洋クラブ</option>
-          <option value="横浜カントリークラブ">横浜カントリークラブ</option>
           <option value="__custom__">その他（自由入力）</option>
         </select>
       </div>
@@ -251,7 +251,30 @@
         <label for="courseCustom">ゴルフ場名を入力</label>
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
-      <div class="full-width">
+      <div class="full-width" id="pacificBranchWrap" style="display:none;">
+        <label for="pacificBranchSelect">太平洋クラブ 支店</label>
+        <select id="pacificBranchSelect">
+          <option value="">選択してください</option>
+          <option value="御殿場">御殿場</option>
+          <option value="御殿場WEST">御殿場WEST</option>
+          <option value="佐野">佐野</option>
+          <option value="美野里">美野里</option>
+          <option value="成田">成田</option>
+          <option value="八千代">八千代</option>
+          <option value="市原">市原</option>
+          <option value="軽井沢">軽井沢</option>
+          <option value="相模">相模</option>
+          <option value="江南">江南</option>
+          <option value="大洗">大洗</option>
+          <option value="益子">益子</option>
+          <option value="__custom__">その他</option>
+        </select>
+      </div>
+      <div class="full-width" id="pacificBranchCustomWrap" style="display:none;">
+        <label for="pacificBranchCustom">支店名を入力</label>
+        <input type="text" id="pacificBranchCustom" placeholder="例: 〇〇コース">
+      </div>
+      <div class="full-width" id="courseNameWrap">
         <label for="courseNameInput">コース名</label>
         <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
       </div>
@@ -269,8 +292,12 @@
           <option value="">選択してください</option>
           <option value="OUT">OUT</option>
           <option value="IN">IN</option>
-          <option value="その他">その他</option>
+          <option value="__custom__">その他</option>
         </select>
+      </div>
+      <div class="full-width" id="startNineCustomWrap" style="display:none;">
+        <label for="startNineCustom">スタートを入力</label>
+        <input type="text" id="startNineCustom" placeholder="例: 特設ティー">
       </div>
       <div>
         <label for="caddieType">セルフ・キャディ</label>
@@ -283,15 +310,15 @@
       <div class="players-col">
         <div>
           <label for="player1">同伴者1</label>
-          <input type="text" id="player1" placeholder="例: 山田さん">
+          <input type="text" id="player1">
         </div>
         <div>
           <label for="player2">同伴者2</label>
-          <input type="text" id="player2" placeholder="例: 佐藤さん">
+          <input type="text" id="player2">
         </div>
         <div>
           <label for="player3">同伴者3</label>
-          <input type="text" id="player3" placeholder="例: 鈴木さん">
+          <input type="text" id="player3">
         </div>
       </div>
       <div class="full-width">
@@ -338,13 +365,38 @@ let currentCourseFilter = "";
 const courseSelect = document.getElementById("courseSelect");
 const courseCustomWrap = document.getElementById("courseCustomWrap");
 const courseCustomInput = document.getElementById("courseCustom");
+const courseNameWrap = document.getElementById("courseNameWrap");
 const courseNameInput = document.getElementById("courseNameInput");
+const pacificBranchWrap = document.getElementById("pacificBranchWrap");
+const pacificBranchSelect = document.getElementById("pacificBranchSelect");
+const pacificBranchCustomWrap = document.getElementById("pacificBranchCustomWrap");
+const pacificBranchCustomInput = document.getElementById("pacificBranchCustom");
 const startNineSelect = document.getElementById("startNine");
+const startNineCustomWrap = document.getElementById("startNineCustomWrap");
+const startNineCustomInput = document.getElementById("startNineCustom");
 const caddieTypeSelect = document.getElementById("caddieType");
+
+const PACIFIC_CLUB_NAME = "太平洋クラブ";
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
+  updateCourseNameUI();
 });
+
+pacificBranchSelect.addEventListener("change", () => {
+  pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
+});
+
+function updateCourseNameUI() {
+  if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    pacificBranchWrap.style.display = "block";
+    courseNameWrap.style.display = "none";
+  } else {
+    pacificBranchWrap.style.display = "none";
+    pacificBranchCustomWrap.style.display = "none";
+    courseNameWrap.style.display = "block";
+  }
+}
 
 function getCourseValue() {
   if (courseSelect.value === "__custom__") {
@@ -368,7 +420,65 @@ function setCourseValue(courseName) {
     courseCustomInput.value = "";
     courseCustomWrap.style.display = "none";
   }
+  updateCourseNameUI();
 }
+
+function getCourseNameValue() {
+  if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    if (pacificBranchSelect.value === "__custom__") {
+      return pacificBranchCustomInput.value.trim();
+    }
+    return pacificBranchSelect.value;
+  }
+  return courseNameInput.value.trim();
+}
+
+function setCourseNameValue(courseNameValue) {
+  courseNameInput.value = "";
+  pacificBranchSelect.value = "";
+  pacificBranchCustomInput.value = "";
+  pacificBranchCustomWrap.style.display = "none";
+  if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    const presetBranches = Array.from(pacificBranchSelect.options).map(o => o.value);
+    if (courseNameValue && presetBranches.includes(courseNameValue)) {
+      pacificBranchSelect.value = courseNameValue;
+    } else if (courseNameValue) {
+      pacificBranchSelect.value = "__custom__";
+      pacificBranchCustomInput.value = courseNameValue;
+      pacificBranchCustomWrap.style.display = "block";
+    }
+  } else {
+    courseNameInput.value = courseNameValue || "";
+  }
+}
+
+function getStartNineValue() {
+  if (startNineSelect.value === "__custom__") {
+    return startNineCustomInput.value.trim();
+  }
+  return startNineSelect.value;
+}
+
+function setStartNineValue(startNineValue) {
+  const presetValues = Array.from(startNineSelect.options).map(o => o.value);
+  if (startNineValue && presetValues.includes(startNineValue)) {
+    startNineSelect.value = startNineValue;
+    startNineCustomWrap.style.display = "none";
+    startNineCustomInput.value = "";
+  } else if (startNineValue) {
+    startNineSelect.value = "__custom__";
+    startNineCustomInput.value = startNineValue;
+    startNineCustomWrap.style.display = "block";
+  } else {
+    startNineSelect.value = "";
+    startNineCustomInput.value = "";
+    startNineCustomWrap.style.display = "none";
+  }
+}
+
+startNineSelect.addEventListener("change", () => {
+  startNineCustomWrap.style.display = startNineSelect.value === "__custom__" ? "block" : "none";
+});
 
 function refreshCourseFilterOptions() {
   const filterEl = document.getElementById("courseFilter");
@@ -668,10 +778,10 @@ timeChangeCheckbox.addEventListener("change", () => {
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
-  const courseName = courseNameInput.value.trim();
+  const courseName = getCourseNameValue();
   const playDate = document.getElementById("playDate").value;
   const startTime = document.getElementById("startTime").value;
-  const startNine = startNineSelect.value;
+  const startNine = getStartNineValue();
   const caddieType = caddieTypeSelect.value;
   const players = [
     document.getElementById("player1").value.trim(),
@@ -728,10 +838,10 @@ document.getElementById("cancelBtn").addEventListener("click", resetForm);
 function resetForm() {
   editingId = null;
   setCourseValue("");
-  courseNameInput.value = "";
+  setCourseNameValue("");
   document.getElementById("playDate").value = "";
   document.getElementById("startTime").value = "";
-  startNineSelect.value = "";
+  setStartNineValue("");
   caddieTypeSelect.value = "";
   document.getElementById("player1").value = "";
   document.getElementById("player2").value = "";
@@ -750,10 +860,10 @@ function startEdit(id) {
   if (!r) return;
   editingId = id;
   setCourseValue(r.course || "");
-  courseNameInput.value = r.courseName || "";
+  setCourseNameValue(r.courseName || "");
   document.getElementById("playDate").value = r.playDate;
   document.getElementById("startTime").value = r.startTime;
-  startNineSelect.value = r.startNine || "";
+  setStartNineValue(r.startNine || "");
   caddieTypeSelect.value = r.caddieType || "";
   const players = r.players || [r.companions || "", "", ""];
   document.getElementById("player1").value = players[0] || "";
@@ -883,6 +993,7 @@ function render() {
   });
 }
 
+updateCourseNameUI();
 updateGcalStatusUI();
 initGoogleAuth();
 render();
