@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ゴルフ予約管理</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --green: #2e7d4f;
+    --green-dark: #1f5c39;
+    --bg: #f4f6f4;
+    --card: #ffffff;
+    --border: #dfe4df;
+    --text: #26302a;
+    --muted: #6b756f;
+    --danger: #c0392b;
+    --warn-bg: #fff4e5;
+    --warn-text: #9a6400;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--green);
+    color: #fff;
+    padding: 20px 24px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 15px;
+    margin: 0 0 14px;
+    color: var(--green-dark);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  label {
+    font-size: 12px;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  input[type="date"], input[type="time"], input[type="text"], select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+  }
+  .course-tag {
+    display: inline-block;
+    font-size: 12px;
+    color: #fff;
+    background: var(--green);
+    padding: 2px 9px;
+    border-radius: 999px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .full-width { grid-column: 1 / -1; }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { margin: 0; font-size: 14px; color: var(--text); }
+  .form-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-size: 14px;
+  }
+  .btn-primary { background: var(--green); color: #fff; }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-secondary { background: #eceeec; color: var(--text); }
+  .btn-secondary:hover { background: #dde1dd; }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .tab-btn {
+    background: #eceeec;
+    color: var(--muted);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
+  .tab-btn.active { background: var(--green); color: #fff; }
+  .res-list { display: flex; flex-direction: column; gap: 10px; }
+  .res-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .res-item.past { opacity: 0.55; }
+  .res-main .date-line {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--green-dark);
+  }
+  .res-main .sub-line {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+  .res-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .icon-btn:hover { background: #f0f1f0; }
+  .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 30px 0;
+  }
+  .gcal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .gcal-status {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .gcal-status.connected { color: var(--green-dark); font-weight: 600; }
+  .gcal-actions { display: flex; gap: 8px; }
+  .sync-tag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--green-dark);
+    background: #e6f2ea;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ゴルフ予約管理</h1>
+  <p>チェックメイトCC・太平洋クラブ・横浜カントリークラブなど、複数のゴルフ場の予約をまとめて記録・管理</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Googleカレンダー連携</h2>
+    <div class="gcal-row">
+      <div class="gcal-status" id="gcalStatus">未接続です</div>
+      <div class="gcal-actions">
+        <button class="btn-secondary" id="gcalConnectBtn">Googleカレンダーに接続</button>
+        <button class="btn-secondary" id="gcalSyncBtn" style="display:none;">Googleカレンダーから最新を取得</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="form-title">予約を追加</h2>
+    <div class="form-grid">
+      <div class="full-width">
+        <label for="courseSelect">ゴルフ場</label>
+        <select id="courseSelect">
+          <option value="">選択してください</option>
+          <option value="チェックメイトCC">チェックメイトCC</option>
+          <option value="太平洋クラブ">太平洋クラブ</option>
+          <option value="横浜カントリークラブ">横浜カントリークラブ</option>
+          <option value="__custom__">その他（自由入力）</option>
+        </select>
+      </div>
+      <div class="full-width" id="courseCustomWrap" style="display:none;">
+        <label for="courseCustom">ゴルフ場名を入力</label>
+        <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
+      </div>
+      <div>
+        <label for="playDate">プレー日</label>
+        <input type="date" id="playDate">
+      </div>
+      <div>
+        <label for="startTime">スタート時間</label>
+        <input type="time" id="startTime">
+      </div>
+      <div>
+        <label for="player1">プレーヤー1</label>
+        <input type="text" id="player1" placeholder="例: 定国直樹">
+      </div>
+      <div>
+        <label for="player2">プレーヤー2</label>
+        <input type="text" id="player2" placeholder="例: 山田さん">
+      </div>
+      <div>
+        <label for="player3">プレーヤー3</label>
+        <input type="text" id="player3" placeholder="例: 佐藤さん">
+      </div>
+      <div>
+        <label for="player4">プレーヤー4</label>
+        <input type="text" id="player4" placeholder="例: 鈴木さん">
+      </div>
+      <div class="full-width">
+        <div class="checkbox-row">
+          <input type="checkbox" id="timeChangeRequested">
+          <label for="timeChangeRequested">時間変更依頼あり</label>
+        </div>
+      </div>
+      <div class="full-width" id="timeChangeNoteWrap" style="display:none;">
+        <label for="timeChangeNote">変更依頼の内容・希望時間など</label>
+        <input type="text" id="timeChangeNote" placeholder="例: 9:00台に変更希望、連絡済み">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-primary" id="saveBtn">追加する</button>
+      <button class="btn-secondary" id="cancelBtn" style="display:none;">キャンセル</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>予約一覧</h2>
+    <div class="filter-row">
+      <div class="tabs">
+        <button class="tab-btn active" data-filter="upcoming">今後の予約</button>
+        <button class="tab-btn" data-filter="all">すべて</button>
+        <button class="tab-btn" data-filter="changeRequested">変更依頼あり</button>
+      </div>
+      <select id="courseFilter">
+        <option value="">すべてのゴルフ場</option>
+      </select>
+    </div>
+    <div class="res-list" id="resList"></div>
+    <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
+  </div>
+</main>
+
+<script>
+const STORAGE_KEY = "checkmatecc_reservations";
+let editingId = null;
+let currentFilter = "upcoming";
+let currentCourseFilter = "";
+
+// ---- ゴルフ場（コース）選択 ----
+const courseSelect = document.getElementById("courseSelect");
+const courseCustomWrap = document.getElementById("courseCustomWrap");
+const courseCustomInput = document.getElementById("courseCustom");
+
+courseSelect.addEventListener("change", () => {
+  courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
+});
+
+function getCourseValue() {
+  if (courseSelect.value === "__custom__") {
+    return courseCustomInput.value.trim();
+  }
+  return courseSelect.value;
+}
+
+function setCourseValue(courseName) {
+  const presetValues = Array.from(courseSelect.options).map(o => o.value);
+  if (courseName && presetValues.includes(courseName)) {
+    courseSelect.value = courseName;
+    courseCustomWrap.style.display = "none";
+    courseCustomInput.value = "";
+  } else if (courseName) {
+    courseSelect.value = "__custom__";
+    courseCustomInput.value = courseName;
+    courseCustomWrap.style.display = "block";
+  } else {
+    courseSelect.value = "";
+    courseCustomInput.value = "";
+    courseCustomWrap.style.display = "none";
+  }
+}
+
+function refreshCourseFilterOptions() {
+  const filterEl = document.getElementById("courseFilter");
+  const list = loadReservations();
+  const courses = Array.from(new Set(list.map(r => r.course).filter(c => c && c.trim()))).sort();
+  const previousValue = filterEl.value;
+  filterEl.innerHTML = '<option value="">すべてのゴルフ場</option>';
+  courses.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    filterEl.appendChild(opt);
+  });
+  if (courses.includes(previousValue)) {
+    filterEl.value = previousValue;
+  }
+}
+
+document.getElementById("courseFilter").addEventListener("change", (e) => {
+  currentCourseFilter = e.target.value;
+  render();
+});
+
+// ---- Google カレンダー連携 ----
+const GOOGLE_CLIENT_ID = "477050098248-osleutait6uvk1a7b14npjtjohdiu0q2.apps.googleusercontent.com";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GCAL_ROUND_HOURS = 5; // ゴルフ1ラウンドの想定所要時間（カレンダー表示用）
+let gcalToken = null;
+let gcalTokenClient = null;
+
+function updateGcalStatusUI() {
+  const statusEl = document.getElementById("gcalStatus");
+  const connectBtn = document.getElementById("gcalConnectBtn");
+  const syncBtn = document.getElementById("gcalSyncBtn");
+  if (gcalToken) {
+    statusEl.textContent = "Googleカレンダーに接続済みです";
+    statusEl.classList.add("connected");
+    connectBtn.textContent = "再接続する";
+    syncBtn.style.display = "inline-block";
+  } else {
+    statusEl.textContent = "未接続です（予約の自動反映にはGoogleカレンダーへの接続が必要です）";
+    statusEl.classList.remove("connected");
+    connectBtn.textContent = "Googleカレンダーに接続";
+    syncBtn.style.display = "none";
+  }
+}
+
+function initGoogleAuth() {
+  if (typeof google === "undefined" || !google.accounts) {
+    setTimeout(initGoogleAuth, 300);
+    return;
+  }
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPE,
+    callback: (resp) => {
+      if (resp.error) {
+        alert("Googleカレンダーへの接続に失敗しました: " + resp.error);
+        return;
+      }
+      gcalToken = resp.access_token;
+      updateGcalStatusUI();
+      syncFromCalendar();
+    }
+  });
+}
+
+function playersLine(r) {
+  const players = (r.players || [r.companions || ""]).filter(n => n && n.trim());
+  return players.length ? players.join("、") : "なし";
+}
+
+function toEventResource(r) {
+  const startDateTime = `${r.playDate}T${r.startTime}:00`;
+  const end = new Date(`${r.playDate}T${r.startTime}:00`);
+  end.setHours(end.getHours() + GCAL_ROUND_HOURS);
+  const pad = n => String(n).padStart(2, "0");
+  const endDateTime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
+  const courseName = r.course && r.course.trim() ? r.course.trim() : "ゴルフ場未設定";
+  let description = `ゴルフ場: ${courseName}\nプレーヤー: ${playersLine(r)}`;
+  if (r.timeChangeRequested) {
+    description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
+  }
+  return {
+    summary: `${courseName} ゴルフ ${r.startTime}〜`,
+    description,
+    start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
+    end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" },
+    extendedProperties: { private: { checkmateccApp: "true" } }
+  };
+}
+
+async function pushToCalendar(reservation) {
+  if (!gcalToken) return reservation.gcalEventId || null;
+  const event = toEventResource(reservation);
+  const url = reservation.gcalEventId
+    ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${reservation.gcalEventId}`
+    : `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+  const method = reservation.gcalEventId ? "PATCH" : "POST";
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${gcalToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(event)
+    });
+    if (res.status === 401) {
+      gcalToken = null;
+      updateGcalStatusUI();
+      return reservation.gcalEventId || null;
+    }
+    if (!res.ok) return reservation.gcalEventId || null;
+    const data = await res.json();
+    return data.id;
+  } catch (e) {
+    return reservation.gcalEventId || null;
+  }
+}
+
+async function deleteFromCalendar(eventId) {
+  if (!gcalToken || !eventId) return;
+  try {
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${gcalToken}` }
+    });
+  } catch (e) {
+    // 削除に失敗しても致命的ではないので無視
+  }
+}
+
+function parseEventDescription(desc) {
+  const lines = (desc || "").split("\n");
+  let players = ["", "", "", ""];
+  let timeChangeRequested = false;
+  let timeChangeNote = "";
+  let course = "";
+  lines.forEach(line => {
+    if (line.startsWith("ゴルフ場: ")) {
+      const val = line.replace("ゴルフ場: ", "").trim();
+      course = val === "ゴルフ場未設定" ? "" : val;
+    } else if (line.startsWith("プレーヤー: ")) {
+      const val = line.replace("プレーヤー: ", "").trim();
+      const names = val === "なし" ? [] : val.split("、");
+      players = [names[0] || "", names[1] || "", names[2] || "", names[3] || ""];
+    } else if (line.startsWith("時間変更依頼: ")) {
+      timeChangeRequested = true;
+      timeChangeNote = line.replace("時間変更依頼: ", "").trim();
+    }
+  });
+  return { course, players, timeChangeRequested, timeChangeNote };
+}
+
+// Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
+// 別の端末（iPhoneなど）で追加・変更された予約もここで反映される。
+async function syncFromCalendar() {
+  if (!gcalToken) return;
+  const syncBtn = document.getElementById("gcalSyncBtn");
+  const originalText = syncBtn.textContent;
+  syncBtn.textContent = "同期中...";
+  syncBtn.disabled = true;
+  try {
+    const timeMin = new Date();
+    timeMin.setDate(timeMin.getDate() - 60);
+    const timeMax = new Date();
+    timeMax.setDate(timeMax.getDate() + 365);
+    const params = new URLSearchParams({
+      privateExtendedProperty: "checkmateccApp=true",
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: "true",
+      maxResults: "250"
+    });
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+      headers: { "Authorization": `Bearer ${gcalToken}` }
+    });
+    if (res.status === 401) {
+      gcalToken = null;
+      updateGcalStatusUI();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    const remoteEvents = (data.items || []).filter(ev => ev.start && ev.start.dateTime);
+
+    let list = loadReservations();
+    const remoteIds = new Set();
+
+    remoteEvents.forEach(ev => {
+      remoteIds.add(ev.id);
+      const remoteDate = ev.start.dateTime.slice(0, 10);
+      const remoteTime = ev.start.dateTime.slice(11, 16);
+      const parsed = parseEventDescription(ev.description);
+      const existing = list.find(r => r.gcalEventId === ev.id);
+      if (existing) {
+        existing.playDate = remoteDate;
+        existing.startTime = remoteTime;
+        existing.course = parsed.course;
+        existing.players = parsed.players;
+        existing.timeChangeRequested = parsed.timeChangeRequested;
+        existing.timeChangeNote = parsed.timeChangeNote;
+      } else {
+        list.push({
+          id: uid(),
+          gcalEventId: ev.id,
+          playDate: remoteDate,
+          startTime: remoteTime,
+          course: parsed.course,
+          players: parsed.players,
+          timeChangeRequested: parsed.timeChangeRequested,
+          timeChangeNote: parsed.timeChangeNote
+        });
+      }
+    });
+
+    // カレンダー側から削除された予約（取得範囲内）はローカルからも取り除く
+    list = list.filter(r => !r.gcalEventId || remoteIds.has(r.gcalEventId));
+
+    saveReservations(list);
+    render();
+  } finally {
+    syncBtn.textContent = originalText;
+    syncBtn.disabled = false;
+  }
+}
+
+document.getElementById("gcalConnectBtn").addEventListener("click", () => {
+  if (!gcalTokenClient) {
+    alert("Google認証の準備中です。少し待ってからもう一度お試しください。");
+    return;
+  }
+  gcalTokenClient.requestAccessToken({ prompt: gcalToken ? "" : "consent" });
+});
+
+document.getElementById("gcalSyncBtn").addEventListener("click", syncFromCalendar);
+// ---- ここまで Google カレンダー連携 ----
+
+function loadReservations() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveReservations(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
+const timeChangeCheckbox = document.getElementById("timeChangeRequested");
+const timeChangeNoteWrap = document.getElementById("timeChangeNoteWrap");
+timeChangeCheckbox.addEventListener("change", () => {
+  timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
+});
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const course = getCourseValue();
+  const playDate = document.getElementById("playDate").value;
+  const startTime = document.getElementById("startTime").value;
+  const players = [
+    document.getElementById("player1").value.trim(),
+    document.getElementById("player2").value.trim(),
+    document.getElementById("player3").value.trim(),
+    document.getElementById("player4").value.trim()
+  ];
+  const timeChangeRequested = timeChangeCheckbox.checked;
+  const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
+
+  if (!course) {
+    alert("ゴルフ場を選択（または入力）してください。");
+    return;
+  }
+  if (!playDate || !startTime) {
+    alert("プレー日とスタート時間を入力してください。");
+    return;
+  }
+
+  const saveBtn = document.getElementById("saveBtn");
+  const originalLabel = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = "保存中...";
+
+  let list = loadReservations();
+  let targetReservation;
+
+  if (editingId) {
+    list = list.map(r => {
+      if (r.id !== editingId) return r;
+      targetReservation = { ...r, course, playDate, startTime, players, timeChangeRequested, timeChangeNote };
+      return targetReservation;
+    });
+  } else {
+    targetReservation = {
+      id: uid(),
+      course, playDate, startTime, players, timeChangeRequested, timeChangeNote, gcalEventId: null
+    };
+    list.push(targetReservation);
+  }
+
+  const gcalEventId = await pushToCalendar(targetReservation);
+  if (gcalEventId) {
+    list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId } : r);
+  }
+
+  saveReservations(list);
+  saveBtn.disabled = false;
+  resetForm();
+  render();
+});
+
+document.getElementById("cancelBtn").addEventListener("click", resetForm);
+
+const DEFAULT_PLAYER1 = "定国直樹";
+
+function resetForm() {
+  editingId = null;
+  setCourseValue("");
+  document.getElementById("playDate").value = "";
+  document.getElementById("startTime").value = "";
+  document.getElementById("player1").value = DEFAULT_PLAYER1;
+  document.getElementById("player2").value = "";
+  document.getElementById("player3").value = "";
+  document.getElementById("player4").value = "";
+  timeChangeCheckbox.checked = false;
+  document.getElementById("timeChangeNote").value = "";
+  timeChangeNoteWrap.style.display = "none";
+  document.getElementById("form-title").textContent = "予約を追加";
+  document.getElementById("saveBtn").textContent = "追加する";
+  document.getElementById("cancelBtn").style.display = "none";
+}
+
+function startEdit(id) {
+  const list = loadReservations();
+  const r = list.find(x => x.id === id);
+  if (!r) return;
+  editingId = id;
+  setCourseValue(r.course || "");
+  document.getElementById("playDate").value = r.playDate;
+  document.getElementById("startTime").value = r.startTime;
+  const players = r.players || [r.companions || "", "", "", ""];
+  document.getElementById("player1").value = players[0] || "";
+  document.getElementById("player2").value = players[1] || "";
+  document.getElementById("player3").value = players[2] || "";
+  document.getElementById("player4").value = players[3] || "";
+  timeChangeCheckbox.checked = !!r.timeChangeRequested;
+  document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
+  timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
+  document.getElementById("form-title").textContent = "予約を編集";
+  document.getElementById("saveBtn").textContent = "更新する";
+  document.getElementById("cancelBtn").style.display = "inline-block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteReservation(id) {
+  if (!confirm("この予約を削除しますか？")) return;
+  let list = loadReservations();
+  const target = list.find(x => x.id === id);
+  if (target && target.gcalEventId) {
+    await deleteFromCalendar(target.gcalEventId);
+  }
+  list = list.filter(x => x.id !== id);
+  saveReservations(list);
+  render();
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter = btn.dataset.filter;
+    render();
+  });
+});
+
+function render() {
+  refreshCourseFilterOptions();
+  let list = loadReservations();
+  list.sort((a, b) => (a.playDate + a.startTime).localeCompare(b.playDate + b.startTime));
+
+  const today = todayStr();
+
+  if (currentFilter === "upcoming") {
+    list = list.filter(r => r.playDate >= today);
+  } else if (currentFilter === "changeRequested") {
+    list = list.filter(r => r.timeChangeRequested);
+  }
+
+  if (currentCourseFilter) {
+    list = list.filter(r => r.course === currentCourseFilter);
+  }
+
+  const container = document.getElementById("resList");
+  const emptyMsg = document.getElementById("emptyMsg");
+  container.innerHTML = "";
+
+  if (list.length === 0) {
+    emptyMsg.style.display = "block";
+    return;
+  }
+  emptyMsg.style.display = "none";
+
+  list.forEach(r => {
+    const item = document.createElement("div");
+    item.className = "res-item" + (r.playDate < today ? " past" : "");
+
+    const main = document.createElement("div");
+    main.className = "res-main";
+
+    const dateLine = document.createElement("div");
+    dateLine.className = "date-line";
+    if (r.course) {
+      const courseTag = document.createElement("span");
+      courseTag.className = "course-tag";
+      courseTag.textContent = r.course;
+      dateLine.appendChild(courseTag);
+    }
+    dateLine.appendChild(document.createTextNode(`${formatDateLabel(r.playDate)} ${r.startTime}〜`));
+    if (r.timeChangeRequested) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = "変更依頼あり";
+      dateLine.appendChild(badge);
+    }
+    if (r.gcalEventId) {
+      const tag = document.createElement("span");
+      tag.className = "sync-tag";
+      tag.textContent = "カレンダー同期済み";
+      dateLine.appendChild(tag);
+    }
+
+    const subLine = document.createElement("div");
+    subLine.className = "sub-line";
+    const playerNames = (r.players || [r.companions || ""]).filter(n => n && n.trim());
+    let subText = playerNames.length ? `プレーヤー: ${playerNames.join("、")}` : "プレーヤー: なし";
+    if (r.timeChangeRequested && r.timeChangeNote) {
+      subText += `　／　${r.timeChangeNote}`;
+    }
+    subLine.textContent = subText;
+
+    main.appendChild(dateLine);
+    main.appendChild(subLine);
+
+    const actions = document.createElement("div");
+    actions.className = "res-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.textContent = "編集";
+    editBtn.addEventListener("click", () => startEdit(r.id));
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "icon-btn delete";
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", () => deleteReservation(r.id));
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(main);
+    item.appendChild(actions);
+    container.appendChild(item);
+  });
+}
+
+document.getElementById("player1").value = DEFAULT_PLAYER1;
+updateGcalStatusUI();
+initGoogleAuth();
+render();
+</script>
+
+</body>
+</html>
