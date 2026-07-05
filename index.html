@@ -69,6 +69,9 @@
   .form-grid > div {
     min-width: 0;
   }
+  @media (max-width: 480px) {
+    .date-time-field { grid-column: 1 / -1; }
+  }
   label {
     font-size: 12px;
     color: var(--muted);
@@ -266,7 +269,7 @@
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
       <div class="full-width" id="pacificBranchWrap" style="display:none;">
-        <label for="pacificBranchSelect">太平洋クラブ 支店</label>
+        <label for="pacificBranchSelect">コース</label>
         <select id="pacificBranchSelect">
           <option value="">選択</option>
           <option value="御殿場">御殿場</option>
@@ -288,15 +291,28 @@
         <label for="pacificBranchCustom">支店名を入力</label>
         <input type="text" id="pacificBranchCustom" placeholder="例: 〇〇コース">
       </div>
+      <div class="full-width" id="yokohamaCourseWrap" style="display:none;">
+        <label for="yokohamaCourseSelect">コース</label>
+        <select id="yokohamaCourseSelect">
+          <option value="">選択</option>
+          <option value="西">西</option>
+          <option value="東">東</option>
+          <option value="__custom__">その他</option>
+        </select>
+      </div>
+      <div class="full-width" id="yokohamaCourseCustomWrap" style="display:none;">
+        <label for="yokohamaCourseCustom">コース名を入力</label>
+        <input type="text" id="yokohamaCourseCustom" placeholder="例: 〇〇コース">
+      </div>
       <div class="full-width" id="courseNameWrap">
         <label for="courseNameInput">コース名</label>
         <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
       </div>
-      <div>
+      <div class="date-time-field">
         <label for="playDate">プレー日</label>
         <input type="date" id="playDate">
       </div>
-      <div>
+      <div class="date-time-field">
         <label for="startTime">スタート時間</label>
         <input type="time" id="startTime" min="05:00" max="15:00">
       </div>
@@ -391,12 +407,17 @@ const pacificBranchWrap = document.getElementById("pacificBranchWrap");
 const pacificBranchSelect = document.getElementById("pacificBranchSelect");
 const pacificBranchCustomWrap = document.getElementById("pacificBranchCustomWrap");
 const pacificBranchCustomInput = document.getElementById("pacificBranchCustom");
+const yokohamaCourseWrap = document.getElementById("yokohamaCourseWrap");
+const yokohamaCourseSelect = document.getElementById("yokohamaCourseSelect");
+const yokohamaCourseCustomWrap = document.getElementById("yokohamaCourseCustomWrap");
+const yokohamaCourseCustomInput = document.getElementById("yokohamaCourseCustom");
 const startNineSelect = document.getElementById("startNine");
 const startNineCustomWrap = document.getElementById("startNineCustomWrap");
 const startNineCustomInput = document.getElementById("startNineCustom");
 const caddieTypeSelect = document.getElementById("caddieType");
 
 const PACIFIC_CLUB_NAME = "太平洋クラブ";
+const YOKOHAMA_CC_NAME = "横浜CC";
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
@@ -407,13 +428,23 @@ pacificBranchSelect.addEventListener("change", () => {
   pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
 });
 
+yokohamaCourseSelect.addEventListener("change", () => {
+  yokohamaCourseCustomWrap.style.display = yokohamaCourseSelect.value === "__custom__" ? "block" : "none";
+});
+
 function updateCourseNameUI() {
+  pacificBranchWrap.style.display = "none";
+  pacificBranchCustomWrap.style.display = "none";
+  yokohamaCourseWrap.style.display = "none";
+  yokohamaCourseCustomWrap.style.display = "none";
+  courseNameWrap.style.display = "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     pacificBranchWrap.style.display = "block";
-    courseNameWrap.style.display = "none";
+    pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
+  } else if (courseSelect.value === YOKOHAMA_CC_NAME) {
+    yokohamaCourseWrap.style.display = "block";
+    yokohamaCourseCustomWrap.style.display = yokohamaCourseSelect.value === "__custom__" ? "block" : "none";
   } else {
-    pacificBranchWrap.style.display = "none";
-    pacificBranchCustomWrap.style.display = "none";
     courseNameWrap.style.display = "block";
   }
 }
@@ -450,6 +481,12 @@ function getCourseNameValue() {
     }
     return pacificBranchSelect.value;
   }
+  if (courseSelect.value === YOKOHAMA_CC_NAME) {
+    if (yokohamaCourseSelect.value === "__custom__") {
+      return yokohamaCourseCustomInput.value.trim();
+    }
+    return yokohamaCourseSelect.value;
+  }
   return courseNameInput.value.trim();
 }
 
@@ -458,6 +495,9 @@ function setCourseNameValue(courseNameValue) {
   pacificBranchSelect.value = "";
   pacificBranchCustomInput.value = "";
   pacificBranchCustomWrap.style.display = "none";
+  yokohamaCourseSelect.value = "";
+  yokohamaCourseCustomInput.value = "";
+  yokohamaCourseCustomWrap.style.display = "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     const presetBranches = Array.from(pacificBranchSelect.options).map(o => o.value);
     if (courseNameValue && presetBranches.includes(courseNameValue)) {
@@ -466,6 +506,15 @@ function setCourseNameValue(courseNameValue) {
       pacificBranchSelect.value = "__custom__";
       pacificBranchCustomInput.value = courseNameValue;
       pacificBranchCustomWrap.style.display = "block";
+    }
+  } else if (courseSelect.value === YOKOHAMA_CC_NAME) {
+    const presetCourses = Array.from(yokohamaCourseSelect.options).map(o => o.value);
+    if (courseNameValue && presetCourses.includes(courseNameValue)) {
+      yokohamaCourseSelect.value = courseNameValue;
+    } else if (courseNameValue) {
+      yokohamaCourseSelect.value = "__custom__";
+      yokohamaCourseCustomInput.value = courseNameValue;
+      yokohamaCourseCustomWrap.style.display = "block";
     }
   } else {
     courseNameInput.value = courseNameValue || "";
