@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ゴルフ予約管理</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -754,6 +757,21 @@ function setStartTimeValue(value) {
   }
 }
 
+// 新規予約作成時、現在時刻ではなく7:00(またはそれに一番近い選択肢)を初期値にする
+const DEFAULT_START_TIME = "07:00";
+const DEFAULT_PACIFIC_START_TIME = "07:11"; // 太平洋クラブの選択肢に7:00がないため最も近い時刻
+
+function resetStartTimeToDefault() {
+  startTimeInput.value = DEFAULT_START_TIME;
+  startTimeSelect.value = DEFAULT_START_TIME;
+  yokohamaNishiTimeSelect.value = DEFAULT_START_TIME;
+  yokohamaNishiTimeCustomWrap.style.display = "none";
+  yokohamaNishiTimeCustomInput.value = "";
+  pacificTimeSelect.value = DEFAULT_PACIFIC_START_TIME;
+  pacificTimeCustomWrap.style.display = "none";
+  pacificTimeCustomInput.value = "";
+}
+
 function getCourseValue() {
   if (courseSelect.value === "__custom__") {
     return courseCustomInput.value.trim();
@@ -1245,7 +1263,7 @@ function resetForm() {
   setCourseValue("");
   setCourseNameValue("");
   document.getElementById("playDate").value = "";
-  setStartTimeValue("");
+  resetStartTimeToDefault();
   setStartNineValue("");
   caddieTypeSelect.value = "";
   document.getElementById("player1").value = "";
@@ -1487,6 +1505,7 @@ function render() {
 updateCourseNameUI();
 updateStartTimeUI();
 updateStartNineUI();
+resetStartTimeToDefault();
 updateGcalStatusUI();
 initGoogleAuth();
 render();
