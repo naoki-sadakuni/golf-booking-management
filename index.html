@@ -66,6 +66,9 @@
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px;
   }
+  .form-grid > div {
+    min-width: 0;
+  }
   label {
     font-size: 12px;
     color: var(--muted);
@@ -99,6 +102,19 @@
     gap: 10px;
     margin-bottom: 14px;
   }
+  .course-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .filter-chip {
+    background: #eceeec;
+    color: var(--muted);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
+  .filter-chip.active { background: var(--green); color: #fff; }
   .full-width { grid-column: 1 / -1; }
   .players-col {
     grid-column: 1 / -1;
@@ -239,8 +255,8 @@
         <label for="courseSelect">ゴルフ場</label>
         <select id="courseSelect">
           <option value="">選択</option>
-          <option value="チェックメイトCC">チェックメイトCC</option>
           <option value="横浜CC">横浜CC</option>
+          <option value="チェックメイトCC">チェックメイトCC</option>
           <option value="太平洋クラブ">太平洋クラブ</option>
           <option value="__custom__">その他（自由入力）</option>
         </select>
@@ -324,6 +340,10 @@
           <input type="checkbox" id="timeChangeRequested">
           <label for="timeChangeRequested">時間変更依頼あり</label>
         </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="comboSlot">
+          <label for="comboSlot">組み合わせ枠</label>
+        </div>
       </div>
       <div class="full-width" id="timeChangeNoteWrap" style="display:none;">
         <label for="timeChangeNote">変更依頼の内容・希望時間など</label>
@@ -341,9 +361,13 @@
   <div class="card">
     <h2>予約一覧</h2>
     <div class="filter-row">
-      <select id="courseFilter">
-        <option value="">すべてのゴルフ場</option>
-      </select>
+      <div class="course-filter-row" id="courseFilterRow">
+        <button type="button" class="filter-chip active" data-course="">すべて</button>
+        <button type="button" class="filter-chip" data-course="横浜CC">YCC</button>
+        <button type="button" class="filter-chip" data-course="チェックメイトCC">CMC</button>
+        <button type="button" class="filter-chip" data-course="太平洋クラブ">TYC</button>
+        <button type="button" class="filter-chip" data-course="__other__">その他</button>
+      </div>
       <button class="btn-secondary" id="pastToggleBtn">過去の予約を表示</button>
     </div>
     <div class="res-list" id="resList"></div>
@@ -476,26 +500,13 @@ startNineSelect.addEventListener("change", () => {
   startNineCustomWrap.style.display = startNineSelect.value === "__custom__" ? "block" : "none";
 });
 
-function refreshCourseFilterOptions() {
-  const filterEl = document.getElementById("courseFilter");
-  const list = loadReservations();
-  const courses = Array.from(new Set(list.map(r => r.course).filter(c => c && c.trim()))).sort();
-  const previousValue = filterEl.value;
-  filterEl.innerHTML = '<option value="">すべてのゴルフ場</option>';
-  courses.forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c;
-    opt.textContent = c;
-    filterEl.appendChild(opt);
+document.querySelectorAll("#courseFilterRow .filter-chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#courseFilterRow .filter-chip").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentCourseFilter = btn.dataset.course;
+    render();
   });
-  if (courses.includes(previousValue)) {
-    filterEl.value = previousValue;
-  }
-}
-
-document.getElementById("courseFilter").addEventListener("change", (e) => {
-  currentCourseFilter = e.target.value;
-  render();
 });
 
 // ---- Google カレンダー連携 ----
@@ -568,6 +579,7 @@ function toEventResource(r) {
   description += `\nスタート: ${r.startNine || "未設定"}`;
   description += `\nキャディ: ${r.caddieType || "未設定"}`;
   description += `\nプレーヤー: ${playersLine(r)}`;
+  description += `\n組み合わせ枠: ${r.comboSlot ? "あり" : "なし"}`;
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
@@ -630,6 +642,7 @@ function parseEventDescription(desc) {
   let courseName = "";
   let startNine = "";
   let caddieType = "";
+  let comboSlot = false;
   lines.forEach(line => {
     if (line.startsWith("ゴルフ場: ")) {
       const val = line.replace("ゴルフ場: ", "").trim();
@@ -647,12 +660,14 @@ function parseEventDescription(desc) {
       const val = line.replace("プレーヤー: ", "").trim();
       const names = val === "なし" ? [] : val.split("、");
       players = [names[0] || "", names[1] || "", names[2] || ""];
+    } else if (line.startsWith("組み合わせ枠: ")) {
+      comboSlot = line.replace("組み合わせ枠: ", "").trim() === "あり";
     } else if (line.startsWith("時間変更依頼: ")) {
       timeChangeRequested = true;
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote };
+  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -706,6 +721,7 @@ async function syncFromCalendar() {
         existing.players = parsed.players;
         existing.timeChangeRequested = parsed.timeChangeRequested;
         existing.timeChangeNote = parsed.timeChangeNote;
+        existing.comboSlot = parsed.comboSlot;
       } else {
         list.push({
           id: uid(),
@@ -718,7 +734,8 @@ async function syncFromCalendar() {
           caddieType: parsed.caddieType,
           players: parsed.players,
           timeChangeRequested: parsed.timeChangeRequested,
-          timeChangeNote: parsed.timeChangeNote
+          timeChangeNote: parsed.timeChangeNote,
+          comboSlot: parsed.comboSlot
         });
       }
     });
@@ -774,6 +791,7 @@ function formatDateLabel(dateStr) {
 
 const timeChangeCheckbox = document.getElementById("timeChangeRequested");
 const timeChangeNoteWrap = document.getElementById("timeChangeNoteWrap");
+const comboSlotCheckbox = document.getElementById("comboSlot");
 timeChangeCheckbox.addEventListener("change", () => {
   timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
 });
@@ -792,6 +810,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   ];
   const timeChangeRequested = timeChangeCheckbox.checked;
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
+  const comboSlot = comboSlotCheckbox.checked;
 
   if (!gcalToken) {
     alert("Googleカレンダーに接続してから予約を追加・変更してください。");
@@ -821,13 +840,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote };
+      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, gcalEventId: null
+      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, gcalEventId: null
     };
     list.push(targetReservation);
   }
@@ -869,6 +888,7 @@ function resetForm() {
   timeChangeCheckbox.checked = false;
   document.getElementById("timeChangeNote").value = "";
   timeChangeNoteWrap.style.display = "none";
+  comboSlotCheckbox.checked = false;
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
@@ -893,6 +913,7 @@ function startEdit(id) {
   timeChangeCheckbox.checked = !!r.timeChangeRequested;
   document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
+  comboSlotCheckbox.checked = !!r.comboSlot;
   document.getElementById("form-title").textContent = "予約を変更";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
@@ -918,8 +939,9 @@ document.getElementById("pastToggleBtn").addEventListener("click", () => {
   render();
 });
 
+const KNOWN_COURSES = ["横浜CC", "チェックメイトCC", "太平洋クラブ"];
+
 function render() {
-  refreshCourseFilterOptions();
   let list = loadReservations();
   list.sort((a, b) => (a.playDate + a.startTime).localeCompare(b.playDate + b.startTime));
 
@@ -932,7 +954,9 @@ function render() {
     list = list.filter(r => r.playDate >= today);
   }
 
-  if (currentCourseFilter) {
+  if (currentCourseFilter === "__other__") {
+    list = list.filter(r => r.course && !KNOWN_COURSES.includes(r.course));
+  } else if (currentCourseFilter) {
     list = list.filter(r => r.course === currentCourseFilter);
   }
 
@@ -969,6 +993,12 @@ function render() {
       badge.className = "badge";
       badge.textContent = "変更依頼あり";
       dateLine.appendChild(badge);
+    }
+    if (r.comboSlot) {
+      const comboBadge = document.createElement("span");
+      comboBadge.className = "badge";
+      comboBadge.textContent = "組み合わせ枠";
+      dateLine.appendChild(comboBadge);
     }
     if (r.gcalEventId) {
       const tag = document.createElement("span");
