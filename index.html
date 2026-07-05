@@ -339,6 +339,9 @@
   .calendar-day.today { font-weight: 700; color: var(--green-dark); }
   .calendar-day.selected { background: var(--green); color: #fff; }
   .calendar-day.empty { visibility: hidden; cursor: default; }
+  #reservationFormCard.no-course-selected .course-gate {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
@@ -354,12 +357,12 @@
       <div class="gcal-status" id="gcalStatus">未接続です</div>
       <div class="gcal-actions">
         <button class="btn-secondary" id="gcalConnectBtn">Googleカレンダーに接続</button>
-        <button class="btn-secondary" id="gcalSyncBtn" style="display:none;">Googleカレンダーから最新を取得</button>
+        <button class="btn-secondary" id="gcalSyncBtn" style="display:none;">Googleカレンダー同期</button>
       </div>
     </div>
   </div>
 
-  <div class="card">
+  <div class="card no-course-selected" id="reservationFormCard">
     <h2 id="form-title">予約を追加</h2>
     <div class="form-grid">
       <div class="full-width">
@@ -376,7 +379,7 @@
         <label for="courseCustom">ゴルフ場名を入力</label>
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
-      <div class="full-width" id="pacificBranchWrap" style="display:none;">
+      <div class="full-width course-gate" id="pacificBranchWrap" style="display:none;">
         <label for="pacificBranchSelect">コース</label>
         <select id="pacificBranchSelect">
           <option value="">選択</option>
@@ -395,11 +398,11 @@
           <option value="__custom__">その他</option>
         </select>
       </div>
-      <div class="full-width" id="pacificBranchCustomWrap" style="display:none;">
+      <div class="full-width course-gate" id="pacificBranchCustomWrap" style="display:none;">
         <label for="pacificBranchCustom">支店名を入力</label>
         <input type="text" id="pacificBranchCustom" placeholder="例: 〇〇コース">
       </div>
-      <div class="full-width" id="yokohamaCourseWrap" style="display:none;">
+      <div class="full-width course-gate" id="yokohamaCourseWrap" style="display:none;">
         <label for="yokohamaCourseSelect">コース</label>
         <select id="yokohamaCourseSelect">
           <option value="">選択</option>
@@ -407,11 +410,11 @@
           <option value="東">東</option>
         </select>
       </div>
-      <div class="full-width" id="courseNameWrap">
+      <div class="full-width course-gate" id="courseNameWrap">
         <label for="courseNameInput">コース名</label>
         <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
       </div>
-      <div class="date-time-field" id="playDateFieldWrap">
+      <div class="date-time-field course-gate" id="playDateFieldWrap">
         <label for="playDateButton">プレー日</label>
         <button type="button" id="playDateButton" class="date-picker-btn">日付を選択</button>
         <input type="hidden" id="playDate">
@@ -427,11 +430,11 @@
           <div class="calendar-grid" id="calGrid"></div>
         </div>
       </div>
-      <div class="date-time-field" id="startTimeWrap">
+      <div class="date-time-field course-gate" id="startTimeWrap">
         <label for="startTime">スタート時間</label>
         <input type="time" id="startTime" min="05:00" max="15:00">
       </div>
-      <div class="date-time-field" id="startTimeSelectWrap" style="display:none;">
+      <div class="date-time-field course-gate" id="startTimeSelectWrap" style="display:none;">
         <label for="startTimeSelect">スタート時間</label>
         <select id="startTimeSelect">
           <option value="">選択</option>
@@ -487,7 +490,7 @@
           <option value="10:54">10:54</option>
         </select>
       </div>
-      <div class="date-time-field" id="yokohamaNishiTimeWrap" style="display:none;">
+      <div class="date-time-field course-gate" id="yokohamaNishiTimeWrap" style="display:none;">
         <label for="yokohamaNishiTimeSelect">スタート時間</label>
         <select id="yokohamaNishiTimeSelect">
           <option value="">選択</option>
@@ -518,11 +521,11 @@
           <option value="__custom__">その他</option>
         </select>
       </div>
-      <div class="date-time-field" id="yokohamaNishiTimeCustomWrap" style="display:none;">
+      <div class="date-time-field course-gate" id="yokohamaNishiTimeCustomWrap" style="display:none;">
         <label for="yokohamaNishiTimeCustom">スタート時間を入力</label>
         <input type="time" id="yokohamaNishiTimeCustom">
       </div>
-      <div class="date-time-field" id="pacificTimeWrap" style="display:none;">
+      <div class="date-time-field course-gate" id="pacificTimeWrap" style="display:none;">
         <label for="pacificTimeSelect">スタート時間</label>
         <select id="pacificTimeSelect">
           <option value="">選択</option>
@@ -579,11 +582,11 @@
           <option value="__custom__">その他</option>
         </select>
       </div>
-      <div class="date-time-field" id="pacificTimeCustomWrap" style="display:none;">
+      <div class="date-time-field course-gate" id="pacificTimeCustomWrap" style="display:none;">
         <label for="pacificTimeCustom">スタート時間を入力</label>
         <input type="time" id="pacificTimeCustom">
       </div>
-      <div>
+      <div class="course-gate">
         <label for="startNine">スタート</label>
         <select id="startNine">
           <option value="">選択</option>
@@ -592,11 +595,11 @@
           <option value="__custom__" id="startNineOtherOption">その他</option>
         </select>
       </div>
-      <div class="full-width" id="startNineCustomWrap" style="display:none;">
+      <div class="full-width course-gate" id="startNineCustomWrap" style="display:none;">
         <label for="startNineCustom">スタートを入力</label>
         <input type="text" id="startNineCustom" placeholder="例: 特設ティー">
       </div>
-      <div>
+      <div class="course-gate">
         <label for="caddieType">セルフ・キャディ</label>
         <select id="caddieType">
           <option value="">選択</option>
@@ -604,11 +607,11 @@
           <option value="キャディ付き">キャディ付き</option>
         </select>
       </div>
-      <div class="full-width" id="frequentPlayersWrap" style="display:none;">
+      <div class="full-width course-gate" id="frequentPlayersWrap" style="display:none;">
         <label id="frequentPlayersLabel">よく使う同伴者</label>
         <div class="chip-row" id="frequentPlayersRow"></div>
       </div>
-      <div class="players-col">
+      <div class="players-col course-gate">
         <div>
           <label for="player1">同伴者1</label>
           <input type="text" id="player1">
@@ -622,7 +625,7 @@
           <input type="text" id="player3">
         </div>
       </div>
-      <div class="full-width">
+      <div class="full-width course-gate">
         <div class="checkbox-row">
           <input type="checkbox" id="timeChangeRequested">
           <label for="timeChangeRequested">時間変更依頼あり</label>
@@ -640,17 +643,17 @@
           <label for="notOwnSlot">自分の予約枠ではない</label>
         </div>
       </div>
-      <div class="full-width" id="timeChangeNoteWrap" style="display:none;">
+      <div class="full-width course-gate" id="timeChangeNoteWrap" style="display:none;">
         <label for="timeChangeNote">変更依頼の内容・希望時間など</label>
         <input type="text" id="timeChangeNote" placeholder="例: 9:00台に変更希望、連絡済み">
       </div>
     </div>
-    <div class="form-actions">
+    <div class="form-actions course-gate">
       <button class="btn-primary" id="saveBtn">追加する</button>
       <button class="btn-secondary" id="cancelBtn" style="display:none;">キャンセル</button>
       <button class="btn-danger" id="deleteBtn" style="display:none;">この予約を削除</button>
     </div>
-    <div class="sub-line" id="connectRequiredNote" style="display:none; margin-top:10px;">Googleカレンダーに接続すると予約を追加・変更できます。上の「Googleカレンダーに接続」から接続してください。</div>
+    <div class="sub-line course-gate" id="connectRequiredNote" style="display:none; margin-top:10px;">Googleカレンダーに接続すると予約を追加・変更できます。上の「Googleカレンダーに接続」から接続してください。</div>
   </div>
 
   <div class="card">
@@ -725,8 +728,18 @@ courseSelect.addEventListener("change", () => {
   updateCourseNameUI();
   updateStartTimeUI();
   updateStartNineUI();
+  updateCourseGateUI();
   renderFrequentPlayers();
 });
+
+function updateCourseGateUI() {
+  const card = document.getElementById("reservationFormCard");
+  if (courseSelect.value) {
+    card.classList.remove("no-course-selected");
+  } else {
+    card.classList.add("no-course-selected");
+  }
+}
 
 function updateStartNineUI() {
   const restrict = courseSelect.value === YOKOHAMA_CC_NAME || courseSelect.value === CHECKMATE_CC_NAME;
@@ -885,6 +898,7 @@ function setCourseValue(courseName) {
   updateCourseNameUI();
   updateStartTimeUI();
   updateStartNineUI();
+  updateCourseGateUI();
   renderFrequentPlayers();
 }
 
@@ -985,7 +999,7 @@ function updateGcalStatusUI() {
   if (gcalToken) {
     statusEl.textContent = "Googleカレンダーに接続済みです";
     statusEl.classList.add("connected");
-    connectBtn.textContent = "再接続する";
+    connectBtn.textContent = "再接続";
     syncBtn.style.display = "inline-block";
     saveBtn.disabled = false;
     connectRequiredNote.style.display = "none";
@@ -1615,6 +1629,50 @@ function renderFrequentPlayers() {
   });
 }
 
+function buildReservationCopyText(r) {
+  const lines = [];
+  if (r.course) {
+    if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
+      lines.push(`${r.course} ${r.courseName}`);
+    } else if (r.courseName) {
+      lines.push(`${r.course}（${r.courseName}）`);
+    } else {
+      lines.push(r.course);
+    }
+  }
+  if (r.playDate) lines.push(formatDateLabel(r.playDate));
+  let startLine = r.startTime || "";
+  if (r.startNine) startLine += ` ${r.startNine}`;
+  if (startLine) lines.push(startLine);
+  lines.push("定国直樹");
+  const playerNames = (r.players || [r.companions || ""]).filter(n => n && n.trim());
+  playerNames.forEach(n => lines.push(n));
+  return lines.join("\n");
+}
+
+async function copyReservationInfo(r, btn) {
+  const text = buildReservationCopyText(r);
+  const originalText = btn.textContent;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    btn.textContent = "コピーしました";
+  } catch (e) {
+    btn.textContent = "コピー失敗";
+  }
+  setTimeout(() => { btn.textContent = originalText; }, 1500);
+}
+
 function render() {
   renderFrequentPlayers();
   let list = loadReservations();
@@ -1657,7 +1715,13 @@ function render() {
     if (r.course) {
       const courseTag = document.createElement("span");
       courseTag.className = "course-tag";
-      courseTag.textContent = r.courseName ? `${r.course}（${r.courseName}）` : r.course;
+      if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
+        courseTag.textContent = `${r.course} ${r.courseName}`;
+      } else if (r.courseName) {
+        courseTag.textContent = `${r.course}（${r.courseName}）`;
+      } else {
+        courseTag.textContent = r.course;
+      }
       dateLine.appendChild(courseTag);
     }
     let dateText = `${formatDateLabel(r.playDate)} ${r.startTime}〜`;
@@ -1716,7 +1780,13 @@ function render() {
     editBtn.textContent = "変更";
     editBtn.addEventListener("click", () => startEdit(r.id));
 
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "icon-btn";
+    copyBtn.textContent = "情報コピー";
+    copyBtn.addEventListener("click", () => copyReservationInfo(r, copyBtn));
+
     actions.appendChild(editBtn);
+    actions.appendChild(copyBtn);
 
     item.appendChild(main);
     item.appendChild(actions);
@@ -1727,6 +1797,7 @@ function render() {
 updateCourseNameUI();
 updateStartTimeUI();
 updateStartNineUI();
+updateCourseGateUI();
 resetStartTimeToDefault();
 updateGcalStatusUI();
 initGoogleAuth();
