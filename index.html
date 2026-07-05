@@ -267,6 +267,78 @@
   .modal-actions button {
     flex: 1;
   }
+  #playDateFieldWrap {
+    position: relative;
+  }
+  .date-picker-btn {
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .calendar-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 10px;
+    width: 260px;
+    z-index: 900;
+  }
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--green-dark);
+  }
+  .calendar-header button {
+    background: none;
+    padding: 4px 10px;
+    color: var(--green-dark);
+    font-size: 16px;
+  }
+  .calendar-header button:hover {
+    background: #f0f1f0;
+  }
+  .calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .calendar-day {
+    background: none;
+    border: none;
+    padding: 8px 0;
+    font-size: 13px;
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .calendar-day:hover { background: #f0f1f0; }
+  .calendar-day.other-month { color: #c7ccc8; }
+  .calendar-day.today { font-weight: 700; color: var(--green-dark); }
+  .calendar-day.selected { background: var(--green); color: #fff; }
+  .calendar-day.empty { visibility: hidden; cursor: default; }
 </style>
 </head>
 <body>
@@ -339,9 +411,21 @@
         <label for="courseNameInput">コース名</label>
         <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
       </div>
-      <div class="date-time-field">
-        <label for="playDate">プレー日</label>
-        <input type="date" id="playDate">
+      <div class="date-time-field" id="playDateFieldWrap">
+        <label for="playDateButton">プレー日</label>
+        <button type="button" id="playDateButton" class="date-picker-btn">日付を選択</button>
+        <input type="hidden" id="playDate">
+        <div class="calendar-popup" id="playDateCalendar" style="display:none;">
+          <div class="calendar-header">
+            <button type="button" id="calPrevMonth" aria-label="前の月">‹</button>
+            <span id="calMonthLabel"></span>
+            <button type="button" id="calNextMonth" aria-label="次の月">›</button>
+          </div>
+          <div class="calendar-weekdays">
+            <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>
+          </div>
+          <div class="calendar-grid" id="calGrid"></div>
+        </div>
       </div>
       <div class="date-time-field" id="startTimeWrap">
         <label for="startTime">スタート時間</label>
@@ -550,6 +634,10 @@
         <div class="checkbox-row">
           <input type="checkbox" id="registrationComplete">
           <label for="registrationComplete">登録完了</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="notOwnSlot">
+          <label for="notOwnSlot">自分の予約枠ではない</label>
         </div>
       </div>
       <div class="full-width" id="timeChangeNoteWrap" style="display:none;">
@@ -911,6 +999,9 @@ function updateGcalStatusUI() {
   }
 }
 
+const GCAL_EVER_CONNECTED_KEY = "gcal_ever_connected";
+let autoConnectAttempted = false;
+
 function initGoogleAuth() {
   if (typeof google === "undefined" || !google.accounts) {
     setTimeout(initGoogleAuth, 300);
@@ -921,14 +1012,30 @@ function initGoogleAuth() {
     scope: GOOGLE_SCOPE,
     callback: (resp) => {
       if (resp.error) {
-        alert("Googleカレンダーへの接続に失敗しました: " + resp.error);
+        // 自動再接続の試みが失敗しても、初回接続時と違って無言で諦める
+        // （毎回アラートが出ると煩わしいため、手動の「接続」ボタンで再試行してもらう）
+        if (!autoConnectAttempted) {
+          alert("Googleカレンダーへの接続に失敗しました: " + resp.error);
+        }
+        autoConnectAttempted = false;
         return;
       }
+      autoConnectAttempted = false;
+      localStorage.setItem(GCAL_EVER_CONNECTED_KEY, "true");
       gcalToken = resp.access_token;
       updateGcalStatusUI();
       syncFromCalendar();
     }
   });
+
+  // 以前このブラウザで接続に成功したことがあれば、ページを開いた際に
+  // 自動で（サイレントに）再接続を試みる。うまくいけば毎回の手動接続が不要になる。
+  // ブラウザのポップアップ制御によっては失敗することもあり、その場合は
+  // 従来通り「Googleカレンダーに接続」ボタンから手動で接続してもらう。
+  if (localStorage.getItem(GCAL_EVER_CONNECTED_KEY) === "true") {
+    autoConnectAttempted = true;
+    gcalTokenClient.requestAccessToken({ prompt: "" });
+  }
 }
 
 function playersLine(r) {
@@ -953,12 +1060,19 @@ function toEventResource(r) {
   description += `\nプレーヤー: ${playersLine(r)}`;
   description += `\n組み合わせ枠: ${r.comboSlot ? "あり" : "なし"}`;
   description += `\n登録完了: ${r.registrationComplete ? "あり" : "なし"}`;
+  description += `\n自分の予約枠ではない: ${r.notOwnSlot ? "あり" : "なし"}`;
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
   let summary = `${summaryParts.join(" ")} ${r.startTime}〜`;
+  if (r.comboSlot) {
+    summary += "（組み合わせ枠）";
+  }
   if (r.registrationComplete) {
     summary += "（登録済）";
+  }
+  if (r.notOwnSlot) {
+    summary += "（招待枠）";
   }
   return {
     summary,
@@ -1021,6 +1135,7 @@ function parseEventDescription(desc) {
   let caddieType = "";
   let comboSlot = false;
   let registrationComplete = false;
+  let notOwnSlot = false;
   lines.forEach(line => {
     if (line.startsWith("ゴルフ場: ")) {
       const val = line.replace("ゴルフ場: ", "").trim();
@@ -1042,12 +1157,14 @@ function parseEventDescription(desc) {
       comboSlot = line.replace("組み合わせ枠: ", "").trim() === "あり";
     } else if (line.startsWith("登録完了: ")) {
       registrationComplete = line.replace("登録完了: ", "").trim() === "あり";
+    } else if (line.startsWith("自分の予約枠ではない: ")) {
+      notOwnSlot = line.replace("自分の予約枠ではない: ", "").trim() === "あり";
     } else if (line.startsWith("時間変更依頼: ")) {
       timeChangeRequested = true;
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete };
+  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -1103,6 +1220,7 @@ async function syncFromCalendar() {
         existing.timeChangeNote = parsed.timeChangeNote;
         existing.comboSlot = parsed.comboSlot;
         existing.registrationComplete = parsed.registrationComplete;
+        existing.notOwnSlot = parsed.notOwnSlot;
       } else {
         list.push({
           id: uid(),
@@ -1117,7 +1235,8 @@ async function syncFromCalendar() {
           timeChangeRequested: parsed.timeChangeRequested,
           timeChangeNote: parsed.timeChangeNote,
           comboSlot: parsed.comboSlot,
-          registrationComplete: parsed.registrationComplete
+          registrationComplete: parsed.registrationComplete,
+          notOwnSlot: parsed.notOwnSlot
         });
       }
     });
@@ -1171,10 +1290,104 @@ function formatDateLabel(dateStr) {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
 }
 
+// ---- プレー日カレンダー（月曜はじまり） ----
+function pad2(n) { return String(n).padStart(2, "0"); }
+function toISODate(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+
+const playDateInput = document.getElementById("playDate");
+const playDateButton = document.getElementById("playDateButton");
+const playDateCalendar = document.getElementById("playDateCalendar");
+const calMonthLabel = document.getElementById("calMonthLabel");
+const calGrid = document.getElementById("calGrid");
+
+let calendarViewYear = null;
+let calendarViewMonth = null; // 0-indexed
+
+function setPlayDateValue(value) {
+  playDateInput.value = value || "";
+  playDateButton.textContent = value ? formatDateLabel(value) : "日付を選択";
+}
+
+function openCalendar() {
+  const current = playDateInput.value;
+  const base = current ? new Date(current + "T00:00:00") : new Date();
+  calendarViewYear = base.getFullYear();
+  calendarViewMonth = base.getMonth();
+  renderCalendarGrid();
+  playDateCalendar.style.display = "block";
+}
+
+function closeCalendar() {
+  playDateCalendar.style.display = "none";
+}
+
+function renderCalendarGrid() {
+  calMonthLabel.textContent = `${calendarViewYear}年${calendarViewMonth + 1}月`;
+  calGrid.innerHTML = "";
+
+  const firstOfMonth = new Date(calendarViewYear, calendarViewMonth, 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7; // 月曜はじまり: 0=月...6=日
+  const daysInMonth = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
+  const todayIso = todayStr();
+  const selectedIso = playDateInput.value;
+
+  for (let i = 0; i < startOffset; i++) {
+    const empty = document.createElement("span");
+    empty.className = "calendar-day empty";
+    calGrid.appendChild(empty);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const iso = toISODate(calendarViewYear, calendarViewMonth, day);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "calendar-day";
+    if (iso === todayIso) btn.classList.add("today");
+    if (iso === selectedIso) btn.classList.add("selected");
+    btn.textContent = day;
+    btn.addEventListener("click", () => {
+      setPlayDateValue(iso);
+      closeCalendar();
+    });
+    calGrid.appendChild(btn);
+  }
+}
+
+playDateButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (playDateCalendar.style.display === "block") {
+    closeCalendar();
+  } else {
+    openCalendar();
+  }
+});
+
+document.getElementById("calPrevMonth").addEventListener("click", (e) => {
+  e.stopPropagation();
+  calendarViewMonth -= 1;
+  if (calendarViewMonth < 0) { calendarViewMonth = 11; calendarViewYear -= 1; }
+  renderCalendarGrid();
+});
+
+document.getElementById("calNextMonth").addEventListener("click", (e) => {
+  e.stopPropagation();
+  calendarViewMonth += 1;
+  if (calendarViewMonth > 11) { calendarViewMonth = 0; calendarViewYear += 1; }
+  renderCalendarGrid();
+});
+
+playDateCalendar.addEventListener("click", (e) => e.stopPropagation());
+
+document.addEventListener("click", () => {
+  closeCalendar();
+});
+// ---- ここまで プレー日カレンダー ----
+
 const timeChangeCheckbox = document.getElementById("timeChangeRequested");
 const timeChangeNoteWrap = document.getElementById("timeChangeNoteWrap");
 const comboSlotCheckbox = document.getElementById("comboSlot");
 const registrationCompleteCheckbox = document.getElementById("registrationComplete");
+const notOwnSlotCheckbox = document.getElementById("notOwnSlot");
 timeChangeCheckbox.addEventListener("change", () => {
   timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
 });
@@ -1195,6 +1408,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
   const comboSlot = comboSlotCheckbox.checked;
   const registrationComplete = registrationCompleteCheckbox.checked;
+  const notOwnSlot = notOwnSlotCheckbox.checked;
 
   if (!gcalToken) {
     alert("Googleカレンダーに接続してから予約を追加・変更してください。");
@@ -1224,13 +1438,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete };
+      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, gcalEventId: null
+      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null
     };
     list.push(targetReservation);
   }
@@ -1262,7 +1476,7 @@ function resetForm() {
   editingId = null;
   setCourseValue("");
   setCourseNameValue("");
-  document.getElementById("playDate").value = "";
+  setPlayDateValue("");
   resetStartTimeToDefault();
   setStartNineValue("");
   caddieTypeSelect.value = "";
@@ -1274,6 +1488,7 @@ function resetForm() {
   timeChangeNoteWrap.style.display = "none";
   comboSlotCheckbox.checked = false;
   registrationCompleteCheckbox.checked = false;
+  notOwnSlotCheckbox.checked = false;
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
@@ -1287,7 +1502,7 @@ function startEdit(id) {
   editingId = id;
   setCourseValue(r.course || "");
   setCourseNameValue(r.courseName || "");
-  document.getElementById("playDate").value = r.playDate;
+  setPlayDateValue(r.playDate);
   setStartTimeValue(r.startTime);
   setStartNineValue(r.startNine || "");
   caddieTypeSelect.value = r.caddieType || "";
@@ -1300,6 +1515,7 @@ function startEdit(id) {
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
   comboSlotCheckbox.checked = !!r.comboSlot;
   registrationCompleteCheckbox.checked = !!r.registrationComplete;
+  notOwnSlotCheckbox.checked = !!r.notOwnSlot;
   document.getElementById("form-title").textContent = "予約を変更";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
@@ -1464,6 +1680,12 @@ function render() {
       regBadge.className = "sync-tag";
       regBadge.textContent = "登録済";
       dateLine.appendChild(regBadge);
+    }
+    if (r.notOwnSlot) {
+      const inviteBadge = document.createElement("span");
+      inviteBadge.className = "badge";
+      inviteBadge.textContent = "招待枠";
+      dateLine.appendChild(inviteBadge);
     }
     if (r.gcalEventId) {
       const tag = document.createElement("span");
