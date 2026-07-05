@@ -105,7 +105,7 @@
     gap: 10px;
     margin-bottom: 14px;
   }
-  .course-filter-row {
+  .course-filter-row, .chip-row {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -231,6 +231,39 @@
     border-radius: 999px;
     margin-left: 8px;
   }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 22px 20px;
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  .modal-message {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 18px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .modal-actions button {
+    flex: 1;
+  }
 </style>
 </head>
 <body>
@@ -297,12 +330,7 @@
           <option value="">選択</option>
           <option value="西">西</option>
           <option value="東">東</option>
-          <option value="__custom__">その他</option>
         </select>
-      </div>
-      <div class="full-width" id="yokohamaCourseCustomWrap" style="display:none;">
-        <label for="yokohamaCourseCustom">コース名を入力</label>
-        <input type="text" id="yokohamaCourseCustom" placeholder="例: 〇〇コース">
       </div>
       <div class="full-width" id="courseNameWrap">
         <label for="courseNameInput">コース名</label>
@@ -312,9 +340,95 @@
         <label for="playDate">プレー日</label>
         <input type="date" id="playDate">
       </div>
-      <div class="date-time-field">
+      <div class="date-time-field" id="startTimeWrap">
         <label for="startTime">スタート時間</label>
         <input type="time" id="startTime" min="05:00" max="15:00">
+      </div>
+      <div class="date-time-field" id="startTimeSelectWrap" style="display:none;">
+        <label for="startTimeSelect">スタート時間</label>
+        <select id="startTimeSelect">
+          <option value="">選択</option>
+          <option value="06:00">6:00</option>
+          <option value="06:06">6:06</option>
+          <option value="06:12">6:12</option>
+          <option value="06:18">6:18</option>
+          <option value="06:24">6:24</option>
+          <option value="06:30">6:30</option>
+          <option value="06:36">6:36</option>
+          <option value="06:42">6:42</option>
+          <option value="06:48">6:48</option>
+          <option value="06:54">6:54</option>
+          <option value="07:00">7:00</option>
+          <option value="07:06">7:06</option>
+          <option value="07:12">7:12</option>
+          <option value="07:18">7:18</option>
+          <option value="07:24">7:24</option>
+          <option value="07:30">7:30</option>
+          <option value="07:36">7:36</option>
+          <option value="07:42">7:42</option>
+          <option value="07:48">7:48</option>
+          <option value="07:54">7:54</option>
+          <option value="08:00">8:00</option>
+          <option value="08:06">8:06</option>
+          <option value="08:12">8:12</option>
+          <option value="08:18">8:18</option>
+          <option value="08:24">8:24</option>
+          <option value="08:30">8:30</option>
+          <option value="08:36">8:36</option>
+          <option value="08:42">8:42</option>
+          <option value="08:48">8:48</option>
+          <option value="08:54">8:54</option>
+          <option value="09:00">9:00</option>
+          <option value="09:06">9:06</option>
+          <option value="09:12">9:12</option>
+          <option value="09:18">9:18</option>
+          <option value="09:24">9:24</option>
+          <option value="09:30">9:30</option>
+          <option value="09:36">9:36</option>
+          <option value="09:42">9:42</option>
+          <option value="09:48">9:48</option>
+          <option value="09:54">9:54</option>
+          <option value="10:00">10:00</option>
+          <option value="10:06">10:06</option>
+          <option value="10:12">10:12</option>
+          <option value="10:18">10:18</option>
+          <option value="10:24">10:24</option>
+          <option value="10:30">10:30</option>
+          <option value="10:36">10:36</option>
+          <option value="10:42">10:42</option>
+          <option value="10:48">10:48</option>
+          <option value="10:54">10:54</option>
+        </select>
+      </div>
+      <div class="date-time-field" id="yokohamaNishiTimeWrap" style="display:none;">
+        <label for="yokohamaNishiTimeSelect">スタート時間</label>
+        <select id="yokohamaNishiTimeSelect">
+          <option value="">選択</option>
+          <option value="06:36">6:36</option>
+          <option value="06:44">6:44</option>
+          <option value="06:52">6:52</option>
+          <option value="07:00">7:00</option>
+          <option value="07:08">7:08</option>
+          <option value="07:16">7:16</option>
+          <option value="07:24">7:24</option>
+          <option value="07:32">7:32</option>
+          <option value="07:40">7:40</option>
+          <option value="07:48">7:48</option>
+          <option value="07:56">7:56</option>
+          <option value="08:04">8:04</option>
+          <option value="08:12">8:12</option>
+          <option value="08:20">8:20</option>
+          <option value="08:28">8:28</option>
+          <option value="08:36">8:36</option>
+          <option value="08:44">8:44</option>
+          <option value="08:52">8:52</option>
+          <option value="09:00">9:00</option>
+          <option value="09:08">9:08</option>
+          <option value="09:16">9:16</option>
+          <option value="09:24">9:24</option>
+          <option value="09:32">9:32</option>
+          <option value="09:40">9:40</option>
+        </select>
       </div>
       <div>
         <label for="startNine">スタート</label>
@@ -336,6 +450,10 @@
           <option value="セルフ">セルフ</option>
           <option value="キャディ付き">キャディ付き</option>
         </select>
+      </div>
+      <div class="full-width" id="frequentPlayersWrap" style="display:none;">
+        <label id="frequentPlayersLabel">よく使う同伴者</label>
+        <div class="chip-row" id="frequentPlayersRow"></div>
       </div>
       <div class="players-col">
         <div>
@@ -391,6 +509,16 @@
   </div>
 </main>
 
+<div class="modal-overlay" id="confirmModalOverlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-message" id="confirmModalMessage">本当に削除しますか？</div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="confirmModalNo">いいえ</button>
+      <button type="button" class="btn-danger" id="confirmModalYes">はい</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY = "checkmatecc_reservations";
 let editingId = null;
@@ -409,19 +537,26 @@ const pacificBranchCustomWrap = document.getElementById("pacificBranchCustomWrap
 const pacificBranchCustomInput = document.getElementById("pacificBranchCustom");
 const yokohamaCourseWrap = document.getElementById("yokohamaCourseWrap");
 const yokohamaCourseSelect = document.getElementById("yokohamaCourseSelect");
-const yokohamaCourseCustomWrap = document.getElementById("yokohamaCourseCustomWrap");
-const yokohamaCourseCustomInput = document.getElementById("yokohamaCourseCustom");
 const startNineSelect = document.getElementById("startNine");
 const startNineCustomWrap = document.getElementById("startNineCustomWrap");
 const startNineCustomInput = document.getElementById("startNineCustom");
 const caddieTypeSelect = document.getElementById("caddieType");
+const startTimeInput = document.getElementById("startTime");
+const startTimeSelect = document.getElementById("startTimeSelect");
+const startTimeWrap = document.getElementById("startTimeWrap");
+const startTimeSelectWrap = document.getElementById("startTimeSelectWrap");
+const yokohamaNishiTimeWrap = document.getElementById("yokohamaNishiTimeWrap");
+const yokohamaNishiTimeSelect = document.getElementById("yokohamaNishiTimeSelect");
 
 const PACIFIC_CLUB_NAME = "太平洋クラブ";
 const YOKOHAMA_CC_NAME = "横浜CC";
+const CHECKMATE_CC_NAME = "チェックメイトCC";
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
   updateCourseNameUI();
+  updateStartTimeUI();
+  renderFrequentPlayers();
 });
 
 pacificBranchSelect.addEventListener("change", () => {
@@ -429,23 +564,57 @@ pacificBranchSelect.addEventListener("change", () => {
 });
 
 yokohamaCourseSelect.addEventListener("change", () => {
-  yokohamaCourseCustomWrap.style.display = yokohamaCourseSelect.value === "__custom__" ? "block" : "none";
+  updateStartTimeUI();
 });
 
 function updateCourseNameUI() {
   pacificBranchWrap.style.display = "none";
   pacificBranchCustomWrap.style.display = "none";
   yokohamaCourseWrap.style.display = "none";
-  yokohamaCourseCustomWrap.style.display = "none";
   courseNameWrap.style.display = "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     pacificBranchWrap.style.display = "block";
     pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
   } else if (courseSelect.value === YOKOHAMA_CC_NAME) {
     yokohamaCourseWrap.style.display = "block";
-    yokohamaCourseCustomWrap.style.display = yokohamaCourseSelect.value === "__custom__" ? "block" : "none";
   } else {
     courseNameWrap.style.display = "block";
+  }
+}
+
+function updateStartTimeUI() {
+  startTimeWrap.style.display = "none";
+  startTimeSelectWrap.style.display = "none";
+  yokohamaNishiTimeWrap.style.display = "none";
+  if (courseSelect.value === CHECKMATE_CC_NAME) {
+    startTimeSelectWrap.style.display = "block";
+  } else if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
+    yokohamaNishiTimeWrap.style.display = "block";
+  } else {
+    startTimeWrap.style.display = "block";
+  }
+}
+
+function getStartTimeValue() {
+  if (courseSelect.value === CHECKMATE_CC_NAME) {
+    return startTimeSelect.value;
+  }
+  if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
+    return yokohamaNishiTimeSelect.value;
+  }
+  return startTimeInput.value;
+}
+
+function setStartTimeValue(value) {
+  startTimeInput.value = "";
+  startTimeSelect.value = "";
+  yokohamaNishiTimeSelect.value = "";
+  if (courseSelect.value === CHECKMATE_CC_NAME) {
+    startTimeSelect.value = value || "";
+  } else if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
+    yokohamaNishiTimeSelect.value = value || "";
+  } else {
+    startTimeInput.value = value || "";
   }
 }
 
@@ -472,6 +641,8 @@ function setCourseValue(courseName) {
     courseCustomWrap.style.display = "none";
   }
   updateCourseNameUI();
+  updateStartTimeUI();
+  renderFrequentPlayers();
 }
 
 function getCourseNameValue() {
@@ -482,9 +653,6 @@ function getCourseNameValue() {
     return pacificBranchSelect.value;
   }
   if (courseSelect.value === YOKOHAMA_CC_NAME) {
-    if (yokohamaCourseSelect.value === "__custom__") {
-      return yokohamaCourseCustomInput.value.trim();
-    }
     return yokohamaCourseSelect.value;
   }
   return courseNameInput.value.trim();
@@ -496,8 +664,6 @@ function setCourseNameValue(courseNameValue) {
   pacificBranchCustomInput.value = "";
   pacificBranchCustomWrap.style.display = "none";
   yokohamaCourseSelect.value = "";
-  yokohamaCourseCustomInput.value = "";
-  yokohamaCourseCustomWrap.style.display = "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     const presetBranches = Array.from(pacificBranchSelect.options).map(o => o.value);
     if (courseNameValue && presetBranches.includes(courseNameValue)) {
@@ -511,14 +677,11 @@ function setCourseNameValue(courseNameValue) {
     const presetCourses = Array.from(yokohamaCourseSelect.options).map(o => o.value);
     if (courseNameValue && presetCourses.includes(courseNameValue)) {
       yokohamaCourseSelect.value = courseNameValue;
-    } else if (courseNameValue) {
-      yokohamaCourseSelect.value = "__custom__";
-      yokohamaCourseCustomInput.value = courseNameValue;
-      yokohamaCourseCustomWrap.style.display = "block";
     }
   } else {
     courseNameInput.value = courseNameValue || "";
   }
+  updateStartTimeUI();
 }
 
 function getStartNineValue() {
@@ -849,7 +1012,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
   const courseName = getCourseNameValue();
   const playDate = document.getElementById("playDate").value;
-  const startTime = document.getElementById("startTime").value;
+  const startTime = getStartTimeValue();
   const startNine = getStartNineValue();
   const caddieType = caddieTypeSelect.value;
   const players = [
@@ -928,7 +1091,7 @@ function resetForm() {
   setCourseValue("");
   setCourseNameValue("");
   document.getElementById("playDate").value = "";
-  document.getElementById("startTime").value = "";
+  setStartTimeValue("");
   setStartNineValue("");
   caddieTypeSelect.value = "";
   document.getElementById("player1").value = "";
@@ -952,7 +1115,7 @@ function startEdit(id) {
   setCourseValue(r.course || "");
   setCourseNameValue(r.courseName || "");
   document.getElementById("playDate").value = r.playDate;
-  document.getElementById("startTime").value = r.startTime;
+  setStartTimeValue(r.startTime);
   setStartNineValue(r.startNine || "");
   caddieTypeSelect.value = r.caddieType || "";
   const players = r.players || [r.companions || "", "", ""];
@@ -970,8 +1133,29 @@ function startEdit(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function showConfirmModal(message) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("confirmModalOverlay");
+    const yesBtn = document.getElementById("confirmModalYes");
+    const noBtn = document.getElementById("confirmModalNo");
+    document.getElementById("confirmModalMessage").textContent = message;
+    overlay.style.display = "flex";
+    function cleanup(result) {
+      overlay.style.display = "none";
+      yesBtn.removeEventListener("click", onYes);
+      noBtn.removeEventListener("click", onNo);
+      resolve(result);
+    }
+    function onYes() { cleanup(true); }
+    function onNo() { cleanup(false); }
+    yesBtn.addEventListener("click", onYes);
+    noBtn.addEventListener("click", onNo);
+  });
+}
+
 async function deleteReservation(id) {
-  if (!confirm("この予約を削除しますか？")) return;
+  const confirmed = await showConfirmModal("本当に削除しますか？");
+  if (!confirmed) return;
   let list = loadReservations();
   const target = list.find(x => x.id === id);
   if (target && target.gcalEventId) {
@@ -990,7 +1174,59 @@ document.getElementById("pastToggleBtn").addEventListener("click", () => {
 
 const KNOWN_COURSES = ["横浜CC", "チェックメイトCC", "太平洋クラブ"];
 
+function getFrequentPlayerNames(limit, courseFilter) {
+  const list = loadReservations();
+  const scoped = courseFilter ? list.filter(r => r.course === courseFilter) : list;
+  const counts = {};
+  scoped.forEach(r => {
+    (r.players || []).forEach(name => {
+      const n = (name || "").trim();
+      if (!n) return;
+      counts[n] = (counts[n] || 0) + 1;
+    });
+  });
+  return Object.keys(counts)
+    .sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, "ja"))
+    .slice(0, limit || 6);
+}
+
+function fillPlayerName(name) {
+  const inputs = [
+    document.getElementById("player1"),
+    document.getElementById("player2"),
+    document.getElementById("player3")
+  ];
+  const target = inputs.find(inp => !inp.value.trim());
+  if (target) {
+    target.value = name;
+  }
+}
+
+function renderFrequentPlayers() {
+  const wrap = document.getElementById("frequentPlayersWrap");
+  const row = document.getElementById("frequentPlayersRow");
+  const label = document.getElementById("frequentPlayersLabel");
+  const currentCourse = getCourseValue();
+  const names = getFrequentPlayerNames(6, currentCourse);
+  row.innerHTML = "";
+  if (names.length === 0) {
+    wrap.style.display = "none";
+    return;
+  }
+  label.textContent = currentCourse ? `よく使う同伴者（${currentCourse}）` : "よく使う同伴者";
+  wrap.style.display = "block";
+  names.forEach(name => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "filter-chip";
+    chip.textContent = name;
+    chip.addEventListener("click", () => fillPlayerName(name));
+    row.appendChild(chip);
+  });
+}
+
 function render() {
+  renderFrequentPlayers();
   let list = loadReservations();
   list.sort((a, b) => (a.playDate + a.startTime).localeCompare(b.playDate + b.startTime));
 
@@ -1087,6 +1323,7 @@ function render() {
 }
 
 updateCourseNameUI();
+updateStartTimeUI();
 updateGcalStatusUI();
 initGoogleAuth();
 render();
