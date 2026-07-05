@@ -19,6 +19,10 @@
     --warn-text: #9a6400;
   }
   * { box-sizing: border-box; }
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   body {
     margin: 0;
     font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
@@ -127,28 +131,23 @@
   .btn-primary:hover { background: var(--green-dark); }
   .btn-secondary { background: #eceeec; color: var(--text); }
   .btn-secondary:hover { background: #dde1dd; }
-  .tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 14px;
-  }
-  .tab-btn {
-    background: #eceeec;
-    color: var(--muted);
-    padding: 7px 14px;
-    border-radius: 999px;
-    font-size: 13px;
-  }
-  .tab-btn.active { background: var(--green); color: #fff; }
+  .btn-danger { background: #fbe9e7; color: var(--danger); }
+  .btn-danger:hover { background: #f8d7d2; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
   .res-list { display: flex; flex-direction: column; gap: 10px; }
   .res-item {
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 14px 16px;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
+  }
+  .res-main {
+    min-width: 0;
+    word-break: break-word;
   }
   .res-item.past { opacity: 0.55; }
   .res-main .date-line {
@@ -219,7 +218,6 @@
 
 <header>
   <h1>ゴルフ予約管理</h1>
-  <p>チェックメイトCC・横浜CC・太平洋クラブなど、複数のゴルフ場の予約をまとめて記録・管理</p>
 </header>
 
 <main>
@@ -240,7 +238,7 @@
       <div class="full-width">
         <label for="courseSelect">ゴルフ場</label>
         <select id="courseSelect">
-          <option value="">選択してください</option>
+          <option value="">選択</option>
           <option value="チェックメイトCC">チェックメイトCC</option>
           <option value="横浜CC">横浜CC</option>
           <option value="太平洋クラブ">太平洋クラブ</option>
@@ -254,7 +252,7 @@
       <div class="full-width" id="pacificBranchWrap" style="display:none;">
         <label for="pacificBranchSelect">太平洋クラブ 支店</label>
         <select id="pacificBranchSelect">
-          <option value="">選択してください</option>
+          <option value="">選択</option>
           <option value="御殿場">御殿場</option>
           <option value="御殿場WEST">御殿場WEST</option>
           <option value="佐野">佐野</option>
@@ -284,12 +282,12 @@
       </div>
       <div>
         <label for="startTime">スタート時間</label>
-        <input type="time" id="startTime">
+        <input type="time" id="startTime" min="05:00" max="15:00">
       </div>
       <div>
         <label for="startNine">スタート</label>
         <select id="startNine">
-          <option value="">選択してください</option>
+          <option value="">選択</option>
           <option value="OUT">OUT</option>
           <option value="IN">IN</option>
           <option value="__custom__">その他</option>
@@ -302,7 +300,7 @@
       <div>
         <label for="caddieType">セルフ・キャディ</label>
         <select id="caddieType">
-          <option value="">選択してください</option>
+          <option value="">選択</option>
           <option value="セルフ">セルフ</option>
           <option value="キャディ付き">キャディ付き</option>
         </select>
@@ -335,20 +333,18 @@
     <div class="form-actions">
       <button class="btn-primary" id="saveBtn">追加する</button>
       <button class="btn-secondary" id="cancelBtn" style="display:none;">キャンセル</button>
+      <button class="btn-danger" id="deleteBtn" style="display:none;">この予約を削除</button>
     </div>
+    <div class="sub-line" id="connectRequiredNote" style="display:none; margin-top:10px;">Googleカレンダーに接続すると予約を追加・変更できます。上の「Googleカレンダーに接続」から接続してください。</div>
   </div>
 
   <div class="card">
     <h2>予約一覧</h2>
     <div class="filter-row">
-      <div class="tabs">
-        <button class="tab-btn active" data-filter="upcoming">今後の予約</button>
-        <button class="tab-btn" data-filter="all">すべて</button>
-        <button class="tab-btn" data-filter="changeRequested">変更依頼あり</button>
-      </div>
       <select id="courseFilter">
         <option value="">すべてのゴルフ場</option>
       </select>
+      <button class="btn-secondary" id="pastToggleBtn">過去の予約を表示</button>
     </div>
     <div class="res-list" id="resList"></div>
     <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
@@ -358,8 +354,8 @@
 <script>
 const STORAGE_KEY = "checkmatecc_reservations";
 let editingId = null;
-let currentFilter = "upcoming";
 let currentCourseFilter = "";
+let showPast = false;
 
 // ---- ゴルフ場（コース）選択 ----
 const courseSelect = document.getElementById("courseSelect");
@@ -505,7 +501,7 @@ document.getElementById("courseFilter").addEventListener("change", (e) => {
 // ---- Google カレンダー連携 ----
 const GOOGLE_CLIENT_ID = "477050098248-osleutait6uvk1a7b14npjtjohdiu0q2.apps.googleusercontent.com";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
-const GCAL_ROUND_HOURS = 5; // ゴルフ1ラウンドの想定所要時間（カレンダー表示用）
+const GCAL_ROUND_HOURS = 6; // ゴルフ1ラウンドの想定所要時間（カレンダー表示用）
 let gcalToken = null;
 let gcalTokenClient = null;
 
@@ -513,16 +509,22 @@ function updateGcalStatusUI() {
   const statusEl = document.getElementById("gcalStatus");
   const connectBtn = document.getElementById("gcalConnectBtn");
   const syncBtn = document.getElementById("gcalSyncBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const connectRequiredNote = document.getElementById("connectRequiredNote");
   if (gcalToken) {
     statusEl.textContent = "Googleカレンダーに接続済みです";
     statusEl.classList.add("connected");
     connectBtn.textContent = "再接続する";
     syncBtn.style.display = "inline-block";
+    saveBtn.disabled = false;
+    connectRequiredNote.style.display = "none";
   } else {
     statusEl.textContent = "未接続です（予約の自動反映にはGoogleカレンダーへの接続が必要です）";
     statusEl.classList.remove("connected");
     connectBtn.textContent = "Googleカレンダーに接続";
     syncBtn.style.display = "none";
+    saveBtn.disabled = true;
+    connectRequiredNote.style.display = "block";
   }
 }
 
@@ -791,12 +793,20 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const timeChangeRequested = timeChangeCheckbox.checked;
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
 
+  if (!gcalToken) {
+    alert("Googleカレンダーに接続してから予約を追加・変更してください。");
+    return;
+  }
   if (!course) {
     alert("ゴルフ場を選択（または入力）してください。");
     return;
   }
   if (!playDate || !startTime) {
     alert("プレー日とスタート時間を入力してください。");
+    return;
+  }
+  if (startTime < "05:00" || startTime > "15:00") {
+    alert("スタート時間は5:00〜15:00の範囲で入力してください。");
     return;
   }
 
@@ -835,6 +845,16 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 
 document.getElementById("cancelBtn").addEventListener("click", resetForm);
 
+document.getElementById("deleteBtn").addEventListener("click", async () => {
+  if (!editingId) return;
+  const idToDelete = editingId;
+  await deleteReservation(idToDelete);
+  if (!loadReservations().find(r => r.id === idToDelete)) {
+    resetForm();
+    render();
+  }
+});
+
 function resetForm() {
   editingId = null;
   setCourseValue("");
@@ -852,6 +872,7 @@ function resetForm() {
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
+  document.getElementById("deleteBtn").style.display = "none";
 }
 
 function startEdit(id) {
@@ -872,9 +893,10 @@ function startEdit(id) {
   timeChangeCheckbox.checked = !!r.timeChangeRequested;
   document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
-  document.getElementById("form-title").textContent = "予約を編集";
+  document.getElementById("form-title").textContent = "予約を変更";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
+  document.getElementById("deleteBtn").style.display = "inline-block";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -890,13 +912,10 @@ async function deleteReservation(id) {
   render();
 }
 
-document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentFilter = btn.dataset.filter;
-    render();
-  });
+document.getElementById("pastToggleBtn").addEventListener("click", () => {
+  showPast = !showPast;
+  document.getElementById("pastToggleBtn").textContent = showPast ? "今後の予約に戻す" : "過去の予約を表示";
+  render();
 });
 
 function render() {
@@ -906,10 +925,11 @@ function render() {
 
   const today = todayStr();
 
-  if (currentFilter === "upcoming") {
+  if (showPast) {
+    list = list.filter(r => r.playDate < today);
+    list.reverse();
+  } else {
     list = list.filter(r => r.playDate >= today);
-  } else if (currentFilter === "changeRequested") {
-    list = list.filter(r => r.timeChangeRequested);
   }
 
   if (currentCourseFilter) {
@@ -928,7 +948,7 @@ function render() {
 
   list.forEach(r => {
     const item = document.createElement("div");
-    item.className = "res-item" + (r.playDate < today ? " past" : "");
+    item.className = "res-item" + (!showPast && r.playDate < today ? " past" : "");
 
     const main = document.createElement("div");
     main.className = "res-main";
@@ -976,16 +996,10 @@ function render() {
 
     const editBtn = document.createElement("button");
     editBtn.className = "icon-btn";
-    editBtn.textContent = "編集";
+    editBtn.textContent = "変更";
     editBtn.addEventListener("click", () => startEdit(r.id));
 
-    const delBtn = document.createElement("button");
-    delBtn.className = "icon-btn delete";
-    delBtn.textContent = "削除";
-    delBtn.addEventListener("click", () => deleteReservation(r.id));
-
     actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
 
     item.appendChild(main);
     item.appendChild(actions);
