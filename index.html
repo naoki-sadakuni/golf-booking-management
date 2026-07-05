@@ -409,13 +409,13 @@
   <div class="card no-course-selected" id="reservationFormCard">
     <h2 id="form-title">予約を追加</h2>
     <div class="form-grid">
-      <div class="full-width" id="yokohamaPasteWrap">
+      <div class="full-width" id="yokohamaPasteWrap" style="display:none;">
         <label for="yokohamaPasteText">横浜CCの予約確認テキストを貼り付けて自動入力（任意）</label>
         <textarea id="yokohamaPasteText" rows="3" placeholder="例：&#10;スタート枠　スタート時間　コース　プレイヤー名&#10;1組目　9時16分　西 OUT&#10;定国　直樹&#10;馬場　康次"></textarea>
         <button type="button" class="btn-secondary" id="yokohamaPasteParseBtn" style="margin-top:6px;">解析して反映</button>
         <span class="paste-status" id="yokohamaPasteStatus"></span>
       </div>
-      <div class="full-width" id="pacificPasteWrap">
+      <div class="full-width" id="pacificPasteWrap" style="display:none;">
         <label for="pacificPasteText">太平洋クラブの予約確認テキストを貼り付けて自動入力（任意）</label>
         <textarea id="pacificPasteText" rows="3" placeholder="例：&#10;コース　御殿場WEST&#10;...&#10;プレー日　2026年7月12日（日）&#10;スタート時間　ＯＵＴ 7:46〜 4名&#10;...&#10;お名前　定国 直樹（さだくに なおき）&#10;...&#10;お名前　河上 将也 （かわかみ まさや）"></textarea>
         <button type="button" class="btn-secondary" id="pacificPasteParseBtn" style="margin-top:6px;">解析して反映</button>
@@ -768,6 +768,8 @@ let currentCourseFilter = "";
 let showPast = false;
 
 // ---- ゴルフ場（コース）選択 ----
+const yokohamaPasteWrap = document.getElementById("yokohamaPasteWrap");
+const pacificPasteWrap = document.getElementById("pacificPasteWrap");
 const courseSelect = document.getElementById("courseSelect");
 const courseCustomWrap = document.getElementById("courseCustomWrap");
 const courseCustomInput = document.getElementById("courseCustom");
@@ -854,6 +856,8 @@ function updateCourseNameUI() {
   yokohamaCourseWrap.style.display = "none";
   courseNameWrap.style.display = "none";
   bookingSiteWrap.style.display = "none";
+  yokohamaPasteWrap.style.display = courseSelect.value === YOKOHAMA_CC_NAME ? "block" : "none";
+  pacificPasteWrap.style.display = courseSelect.value === PACIFIC_CLUB_NAME ? "block" : "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     pacificBranchWrap.style.display = "block";
     pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
