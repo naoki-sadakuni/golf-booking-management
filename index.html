@@ -81,7 +81,7 @@
     display: block;
     margin-bottom: 4px;
   }
-  input[type="date"], input[type="time"], input[type="text"], select {
+  input[type="date"], input[type="time"], input[type="text"], select, textarea {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
@@ -89,6 +89,12 @@
     font-size: 14px;
     font-family: inherit;
     background: #fff;
+  }
+  textarea { resize: vertical; }
+  .paste-status {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
   }
   .course-tag {
     display: inline-block;
@@ -203,6 +209,8 @@
     padding: 5px 10px;
     font-size: 12px;
     border-radius: 6px;
+    display: inline-block;
+    text-decoration: none;
   }
   .icon-btn:hover { background: #f0f1f0; }
   .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
@@ -342,6 +350,42 @@
   #reservationFormCard.no-course-selected .course-gate {
     display: none !important;
   }
+  .month-calendar { margin-top: 14px; }
+  .month-calendar .calendar-header { margin-bottom: 6px; }
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .month-day {
+    min-height: 62px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px;
+    font-size: 11px;
+    overflow: hidden;
+  }
+  .month-day.other-month { background: #f7f8f7; color: #c7ccc8; }
+  .month-day.today { border-color: var(--green-dark); border-width: 2px; }
+  .month-day-num { font-weight: 600; margin-bottom: 2px; }
+  .month-day-res {
+    background: var(--green);
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 3px;
+    margin-bottom: 2px;
+    font-size: 10px;
+    line-height: 1.4;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .month-day-res:hover { opacity: 0.85; }
+  @media (max-width: 480px) {
+    .month-day { min-height: 44px; padding: 2px; font-size: 10px; }
+    .month-day-res { font-size: 9px; padding: 1px 2px; }
+  }
 </style>
 </head>
 <body>
@@ -365,6 +409,18 @@
   <div class="card no-course-selected" id="reservationFormCard">
     <h2 id="form-title">予約を追加</h2>
     <div class="form-grid">
+      <div class="full-width" id="yokohamaPasteWrap">
+        <label for="yokohamaPasteText">横浜CCの予約確認テキストを貼り付けて自動入力（任意）</label>
+        <textarea id="yokohamaPasteText" rows="3" placeholder="例：&#10;スタート枠　スタート時間　コース　プレイヤー名&#10;1組目　9時16分　西 OUT&#10;定国　直樹&#10;馬場　康次"></textarea>
+        <button type="button" class="btn-secondary" id="yokohamaPasteParseBtn" style="margin-top:6px;">解析して反映</button>
+        <span class="paste-status" id="yokohamaPasteStatus"></span>
+      </div>
+      <div class="full-width" id="pacificPasteWrap">
+        <label for="pacificPasteText">太平洋クラブの予約確認テキストを貼り付けて自動入力（任意）</label>
+        <textarea id="pacificPasteText" rows="3" placeholder="例：&#10;コース　御殿場WEST&#10;...&#10;プレー日　2026年7月12日（日）&#10;スタート時間　ＯＵＴ 7:46〜 4名&#10;...&#10;お名前　定国 直樹（さだくに なおき）&#10;...&#10;お名前　河上 将也 （かわかみ まさや）"></textarea>
+        <button type="button" class="btn-secondary" id="pacificPasteParseBtn" style="margin-top:6px;">解析して反映</button>
+        <span class="paste-status" id="pacificPasteStatus"></span>
+      </div>
       <div class="full-width">
         <label for="courseSelect">ゴルフ場</label>
         <select id="courseSelect">
@@ -413,6 +469,16 @@
       <div class="full-width course-gate" id="courseNameWrap">
         <label for="courseNameInput">コース名</label>
         <input type="text" id="courseNameInput" placeholder="例: 東コース、西コースなど">
+      </div>
+      <div class="full-width course-gate" id="bookingSiteWrap" style="display:none;">
+        <label for="bookingSiteSelect">予約サイト</label>
+        <select id="bookingSiteSelect">
+          <option value="">選択</option>
+          <option value="GORA">GORA</option>
+          <option value="GDO">GDO</option>
+          <option value="公式HP">公式HP</option>
+          <option value="その他">その他</option>
+        </select>
       </div>
       <div class="date-time-field course-gate" id="playDateFieldWrap">
         <label for="playDateButton">プレー日</label>
@@ -667,9 +733,21 @@
         <button type="button" class="filter-chip" data-course="__other__">その他</button>
       </div>
       <button class="btn-secondary" id="pastToggleBtn">過去の予約を表示</button>
+      <button class="btn-secondary" id="monthCalToggleBtn">月次カレンダー表示</button>
     </div>
     <div class="res-list" id="resList"></div>
     <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
+    <div class="month-calendar" id="monthCalendarView" style="display:none;">
+      <div class="calendar-header">
+        <button type="button" id="resCalPrevMonth">‹</button>
+        <span id="resCalMonthLabel"></span>
+        <button type="button" id="resCalNextMonth">›</button>
+      </div>
+      <div class="calendar-weekdays">
+        <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>
+      </div>
+      <div class="month-grid" id="resCalGrid"></div>
+    </div>
   </div>
 </main>
 
@@ -695,6 +773,8 @@ const courseCustomWrap = document.getElementById("courseCustomWrap");
 const courseCustomInput = document.getElementById("courseCustom");
 const courseNameWrap = document.getElementById("courseNameWrap");
 const courseNameInput = document.getElementById("courseNameInput");
+const bookingSiteWrap = document.getElementById("bookingSiteWrap");
+const bookingSiteSelect = document.getElementById("bookingSiteSelect");
 const pacificBranchWrap = document.getElementById("pacificBranchWrap");
 const pacificBranchSelect = document.getElementById("pacificBranchSelect");
 const pacificBranchCustomWrap = document.getElementById("pacificBranchCustomWrap");
@@ -773,6 +853,7 @@ function updateCourseNameUI() {
   pacificBranchCustomWrap.style.display = "none";
   yokohamaCourseWrap.style.display = "none";
   courseNameWrap.style.display = "none";
+  bookingSiteWrap.style.display = "none";
   if (courseSelect.value === PACIFIC_CLUB_NAME) {
     pacificBranchWrap.style.display = "block";
     pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
@@ -782,6 +863,7 @@ function updateCourseNameUI() {
     // チェックメイトCCはコース名の選択が不要
   } else {
     courseNameWrap.style.display = "block";
+    bookingSiteWrap.style.display = "block";
   }
 }
 
@@ -974,6 +1056,153 @@ startNineSelect.addEventListener("change", () => {
   startNineCustomWrap.style.display = startNineSelect.value === "__custom__" ? "block" : "none";
 });
 
+// ---- 横浜CC予約確認テキストの貼り付け解析（任意機能） ----
+// 横浜CCの会員ページ（ログインが必要なため自動取得はできない）から
+// 予約確認テキストを手動でコピー＆ペーストしてもらい、フォームへ自動反映する。
+// 例:
+// スタート枠　スタート時間　コース　プレイヤー名
+// 1組目　9時16分　西 OUT
+// 定国　直樹
+// 馬場　康次
+const OWN_NAME_NORMALIZED = "定国直樹"; // 同伴者リストから自分の名前を除外するため
+
+function normalizeName(name) {
+  return (name || "").replace(/[\s　]+/g, "");
+}
+
+function parseYokohamaPasteText(rawText) {
+  const lines = (rawText || "").split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .filter(l => !(l.includes("スタート枠") && l.includes("プレイヤー名")));
+  if (lines.length === 0) return null;
+
+  const firstLine = lines[0];
+  const timeMatch = firstLine.match(/(\d{1,2})時(\d{1,2})分/);
+  const courseMatch = firstLine.match(/(西|東)\s*(OUT|IN)/);
+
+  const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2].padStart(2, "0")}` : "";
+  const side = courseMatch ? courseMatch[1] : "";
+  const nine = courseMatch ? courseMatch[2] : "";
+
+  const fields = firstLine.split("\t").map(s => s.trim()).filter(s => s.length > 0);
+  const players = [];
+  if (fields.length >= 4) {
+    players.push(fields[fields.length - 1]);
+  }
+  for (let i = 1; i < lines.length; i++) {
+    players.push(lines[i]);
+  }
+  const companions = players
+    .map(p => p.trim())
+    .filter(p => p.length > 0 && normalizeName(p) !== OWN_NAME_NORMALIZED);
+
+  return { time, side, nine, companions };
+}
+
+function applyYokohamaPasteResult(parsed) {
+  setCourseValue(YOKOHAMA_CC_NAME);
+  if (parsed.side) {
+    yokohamaCourseSelect.value = parsed.side;
+    updateStartTimeUI();
+  }
+  if (parsed.nine) {
+    setStartNineValue(parsed.nine);
+  }
+  if (parsed.time) {
+    setStartTimeValue(parsed.time);
+  }
+  parsed.companions.slice(0, 3).forEach((name, i) => {
+    const input = document.getElementById(`player${i + 1}`);
+    if (input) input.value = name;
+  });
+}
+
+document.getElementById("yokohamaPasteParseBtn").addEventListener("click", () => {
+  const textarea = document.getElementById("yokohamaPasteText");
+  const statusEl = document.getElementById("yokohamaPasteStatus");
+  const parsed = parseYokohamaPasteText(textarea.value);
+  if (!parsed || (!parsed.time && !parsed.side && !parsed.nine && parsed.companions.length === 0)) {
+    statusEl.textContent = "解析できませんでした。テキスト形式をご確認ください。";
+    statusEl.style.color = "var(--danger)";
+    return;
+  }
+  applyYokohamaPasteResult(parsed);
+  statusEl.textContent = "反映しました。プレー日は別途選択してください。";
+  statusEl.style.color = "var(--green-dark)";
+});
+// ---- ここまで 横浜CC予約確認テキストの貼り付け解析 ----
+
+// ---- 太平洋クラブ予約確認テキストの貼り付け解析（任意機能） ----
+// 太平洋クラブの会員ページ（ログインが必要なため自動取得はできない）から
+// 予約確認テキストを手動でコピー＆ペーストしてもらい、フォームへ自動反映する。
+function toHalfWidth(str) {
+  return (str || "")
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, " ");
+}
+
+function parsePacificPasteText(rawText) {
+  const text = rawText || "";
+  const halfWidthText = toHalfWidth(text);
+
+  const branchMatch = text.match(/^コース[\t　\s]+(.+)$/m);
+  const branch = branchMatch ? branchMatch[1].trim() : "";
+
+  const dateMatch = text.match(/プレー日[\t　\s]+(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const playDate = dateMatch
+    ? `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`
+    : "";
+
+  const nineMatch = halfWidthText.match(/\b(OUT|IN)\b/);
+  const nine = nineMatch ? nineMatch[1] : "";
+
+  const timeMatch = halfWidthText.match(/(\d{1,2}):(\d{2})/);
+  const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2].padStart(2, "0")}` : "";
+
+  const nameMatches = [...text.matchAll(/^お名前[\t　\s]+([^\n（(]+)/gm)];
+  const companions = nameMatches
+    .map(m => m[1].trim())
+    .filter(n => n.length > 0 && normalizeName(n) !== OWN_NAME_NORMALIZED);
+
+  return { branch, playDate, nine, time, companions };
+}
+
+function applyPacificPasteResult(parsed) {
+  setCourseValue(PACIFIC_CLUB_NAME);
+  if (parsed.branch) {
+    setCourseNameValue(parsed.branch);
+  }
+  if (parsed.nine) {
+    setStartNineValue(parsed.nine);
+  }
+  if (parsed.time) {
+    setStartTimeValue(parsed.time);
+  }
+  if (parsed.playDate) {
+    setPlayDateValue(parsed.playDate);
+  }
+  parsed.companions.slice(0, 3).forEach((name, i) => {
+    const input = document.getElementById(`player${i + 1}`);
+    if (input) input.value = name;
+  });
+}
+
+document.getElementById("pacificPasteParseBtn").addEventListener("click", () => {
+  const textarea = document.getElementById("pacificPasteText");
+  const statusEl = document.getElementById("pacificPasteStatus");
+  const parsed = parsePacificPasteText(textarea.value);
+  if (!parsed || (!parsed.branch && !parsed.playDate && !parsed.nine && !parsed.time && parsed.companions.length === 0)) {
+    statusEl.textContent = "解析できませんでした。テキスト形式をご確認ください。";
+    statusEl.style.color = "var(--danger)";
+    return;
+  }
+  applyPacificPasteResult(parsed);
+  statusEl.textContent = "反映しました。";
+  statusEl.style.color = "var(--green-dark)";
+});
+// ---- ここまで 太平洋クラブ予約確認テキストの貼り付け解析 ----
+
 document.querySelectorAll("#courseFilterRow .filter-chip").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#courseFilterRow .filter-chip").forEach(b => b.classList.remove("active"));
@@ -989,6 +1218,7 @@ const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GCAL_ROUND_HOURS = 6; // ゴルフ1ラウンドの想定所要時間（カレンダー表示用）
 let gcalToken = null;
 let gcalTokenClient = null;
+let lastSyncFailed = false;
 
 function updateGcalStatusUI() {
   const statusEl = document.getElementById("gcalStatus");
@@ -1000,6 +1230,7 @@ function updateGcalStatusUI() {
     statusEl.textContent = "Googleカレンダーに接続済みです";
     statusEl.classList.add("connected");
     connectBtn.textContent = "再接続";
+    connectBtn.style.display = lastSyncFailed ? "inline-block" : "none";
     syncBtn.style.display = "inline-block";
     saveBtn.disabled = false;
     connectRequiredNote.style.display = "none";
@@ -1007,6 +1238,7 @@ function updateGcalStatusUI() {
     statusEl.textContent = "未接続です（予約の自動反映にはGoogleカレンダーへの接続が必要です）";
     statusEl.classList.remove("connected");
     connectBtn.textContent = "Googleカレンダーに接続";
+    connectBtn.style.display = "inline-block";
     syncBtn.style.display = "none";
     saveBtn.disabled = true;
     connectRequiredNote.style.display = "block";
@@ -1069,6 +1301,7 @@ function toEventResource(r) {
   if (r.startNine) summaryParts.push(r.startNine);
   let description = `ゴルフ場: ${courseName}`;
   description += `\nコース名: ${r.courseName && r.courseName.trim() ? r.courseName.trim() : "なし"}`;
+  if (r.bookingSite) description += `\n予約サイト: ${r.bookingSite}`;
   description += `\nスタート: ${r.startNine || "未設定"}`;
   description += `\nキャディ: ${r.caddieType || "未設定"}`;
   description += `\nプレーヤー: ${playersLine(r)}`;
@@ -1145,6 +1378,7 @@ function parseEventDescription(desc) {
   let timeChangeNote = "";
   let course = "";
   let courseName = "";
+  let bookingSite = "";
   let startNine = "";
   let caddieType = "";
   let comboSlot = false;
@@ -1157,6 +1391,8 @@ function parseEventDescription(desc) {
     } else if (line.startsWith("コース名: ")) {
       const val = line.replace("コース名: ", "").trim();
       courseName = val === "なし" ? "" : val;
+    } else if (line.startsWith("予約サイト: ")) {
+      bookingSite = line.replace("予約サイト: ", "").trim();
     } else if (line.startsWith("スタート: ")) {
       const val = line.replace("スタート: ", "").trim();
       startNine = val === "未設定" ? "" : val;
@@ -1178,7 +1414,7 @@ function parseEventDescription(desc) {
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+  return { course, courseName, bookingSite, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -1206,10 +1442,15 @@ async function syncFromCalendar() {
     });
     if (res.status === 401) {
       gcalToken = null;
+      lastSyncFailed = false;
       updateGcalStatusUI();
       return;
     }
-    if (!res.ok) return;
+    if (!res.ok) {
+      lastSyncFailed = true;
+      updateGcalStatusUI();
+      return;
+    }
     const data = await res.json();
     const remoteEvents = (data.items || []).filter(ev => ev.start && ev.start.dateTime);
 
@@ -1227,6 +1468,7 @@ async function syncFromCalendar() {
         existing.startTime = remoteTime;
         existing.course = parsed.course;
         existing.courseName = parsed.courseName;
+        existing.bookingSite = parsed.bookingSite;
         existing.startNine = parsed.startNine;
         existing.caddieType = parsed.caddieType;
         existing.players = parsed.players;
@@ -1243,6 +1485,7 @@ async function syncFromCalendar() {
           startTime: remoteTime,
           course: parsed.course,
           courseName: parsed.courseName,
+          bookingSite: parsed.bookingSite,
           startNine: parsed.startNine,
           caddieType: parsed.caddieType,
           players: parsed.players,
@@ -1260,6 +1503,11 @@ async function syncFromCalendar() {
 
     saveReservations(list);
     render();
+    lastSyncFailed = false;
+    updateGcalStatusUI();
+  } catch (e) {
+    lastSyncFailed = true;
+    updateGcalStatusUI();
   } finally {
     syncBtn.textContent = originalText;
     syncBtn.disabled = false;
@@ -1409,6 +1657,7 @@ timeChangeCheckbox.addEventListener("change", () => {
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
   const courseName = getCourseNameValue();
+  const bookingSite = courseSelect.value === "__custom__" ? bookingSiteSelect.value : "";
   const playDate = document.getElementById("playDate").value;
   const startTime = getStartTimeValue();
   const startNine = getStartNineValue();
@@ -1452,13 +1701,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+      targetReservation = { ...r, course, courseName, bookingSite, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null
+      course, courseName, bookingSite, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null
     };
     list.push(targetReservation);
   }
@@ -1490,6 +1739,7 @@ function resetForm() {
   editingId = null;
   setCourseValue("");
   setCourseNameValue("");
+  bookingSiteSelect.value = "";
   setPlayDateValue("");
   resetStartTimeToDefault();
   setStartNineValue("");
@@ -1516,6 +1766,7 @@ function startEdit(id) {
   editingId = id;
   setCourseValue(r.course || "");
   setCourseNameValue(r.courseName || "");
+  bookingSiteSelect.value = r.bookingSite || "";
   setPlayDateValue(r.playDate);
   setStartTimeValue(r.startTime);
   setStartNineValue(r.startNine || "");
@@ -1576,6 +1827,123 @@ document.getElementById("pastToggleBtn").addEventListener("click", () => {
   render();
 });
 
+// ---- 予約一覧の月次カレンダー表示（普段は非表示） ----
+let monthCalendarVisible = false;
+const today0 = new Date();
+let resCalYear = today0.getFullYear();
+let resCalMonth = today0.getMonth(); // 0-11
+
+const monthCalendarView = document.getElementById("monthCalendarView");
+const resCalGrid = document.getElementById("resCalGrid");
+const resCalMonthLabel = document.getElementById("resCalMonthLabel");
+const monthCalToggleBtn = document.getElementById("monthCalToggleBtn");
+const resListEl = document.getElementById("resList");
+
+function courseAbbrev(course) {
+  if (course === "横浜CC") return "YCC";
+  if (course === "チェックメイトCC") return "CMC";
+  if (course === "太平洋クラブ") return "TYC";
+  return course || "";
+}
+
+function renderMonthCalendar() {
+  resCalMonthLabel.textContent = `${resCalYear}年${resCalMonth + 1}月`;
+  resCalGrid.innerHTML = "";
+
+  const list = loadReservations().filter(r => {
+    if (currentCourseFilter === "__other__") return r.course && !KNOWN_COURSES.includes(r.course);
+    if (currentCourseFilter) return r.course === currentCourseFilter;
+    return true;
+  });
+  const byDate = {};
+  list.forEach(r => {
+    if (!r.playDate) return;
+    (byDate[r.playDate] = byDate[r.playDate] || []).push(r);
+  });
+
+  const firstOfMonth = new Date(resCalYear, resCalMonth, 1);
+  // 月曜はじまりのオフセット (0=月,...,6=日)
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(resCalYear, resCalMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(resCalYear, resCalMonth, 0).getDate();
+  const todayIso = todayStr();
+
+  const prevM = resCalMonth === 0 ? 11 : resCalMonth - 1;
+  const prevY = resCalMonth === 0 ? resCalYear - 1 : resCalYear;
+  const nextM = resCalMonth === 11 ? 0 : resCalMonth + 1;
+  const nextY = resCalMonth === 11 ? resCalYear + 1 : resCalYear;
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) {
+    const d = daysInPrevMonth - startOffset + 1 + i;
+    cells.push({ day: d, otherMonth: true, iso: toISODate(prevY, prevM, d) });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, otherMonth: false, iso: toISODate(resCalYear, resCalMonth, d) });
+  }
+  let nextDay = 1;
+  while (cells.length % 7 !== 0 || cells.length < 42) {
+    cells.push({ day: nextDay, otherMonth: true, iso: toISODate(nextY, nextM, nextDay) });
+    nextDay++;
+    if (cells.length >= 42) break;
+  }
+
+  cells.forEach(cell => {
+    const dayEl = document.createElement("div");
+    dayEl.className = "month-day" + (cell.otherMonth ? " other-month" : "") + (cell.iso === todayIso ? " today" : "");
+    const num = document.createElement("div");
+    num.className = "month-day-num";
+    num.textContent = cell.day;
+    dayEl.appendChild(num);
+
+    const dayRes = (byDate[cell.iso] || []).slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+    dayRes.forEach(r => {
+      const tag = document.createElement("div");
+      tag.className = "month-day-res";
+      tag.textContent = `${r.startTime || ""} ${courseAbbrev(r.course)}`;
+      tag.addEventListener("click", () => {
+        toggleMonthCalendarView(false);
+        startEdit(r.id);
+      });
+      dayEl.appendChild(tag);
+    });
+
+    resCalGrid.appendChild(dayEl);
+  });
+}
+
+function toggleMonthCalendarView(forceShow) {
+  monthCalendarVisible = typeof forceShow === "boolean" ? forceShow : !monthCalendarVisible;
+  if (monthCalendarVisible) {
+    resCalYear = today0.getFullYear();
+    resCalMonth = today0.getMonth();
+    monthCalendarView.style.display = "block";
+    resListEl.style.display = "none";
+    document.getElementById("emptyMsg").style.display = "none";
+    monthCalToggleBtn.textContent = "一覧表示に戻す";
+    renderMonthCalendar();
+  } else {
+    monthCalendarView.style.display = "none";
+    resListEl.style.display = "flex";
+    monthCalToggleBtn.textContent = "月次カレンダー表示";
+    render();
+  }
+}
+
+monthCalToggleBtn.addEventListener("click", () => toggleMonthCalendarView());
+
+document.getElementById("resCalPrevMonth").addEventListener("click", () => {
+  resCalMonth--;
+  if (resCalMonth < 0) { resCalMonth = 11; resCalYear--; }
+  renderMonthCalendar();
+});
+
+document.getElementById("resCalNextMonth").addEventListener("click", () => {
+  resCalMonth++;
+  if (resCalMonth > 11) { resCalMonth = 0; resCalYear++; }
+  renderMonthCalendar();
+});
+
 const KNOWN_COURSES = ["横浜CC", "チェックメイトCC", "太平洋クラブ"];
 
 function getFrequentPlayerNames(limit, courseFilter) {
@@ -1628,6 +1996,74 @@ function renderFrequentPlayers() {
     row.appendChild(chip);
   });
 }
+
+// ---- Eメール連絡（同伴者登録） ----
+const CLUB_EMAIL_MAP = {
+  "横浜CC": "rsv@yokohama-cc.jp",
+  "チェックメイトCC": "kumiawase@checkmate-cc.com"
+};
+const PACIFIC_BRANCH_EMAIL_MAP = {
+  "御殿場": "gotemba-c@taiheiyoclub.co.jp",
+  "御殿場WEST": "gwest-c@taiheiyoclub.co.jp",
+  "佐野": "hillcrest@taiheiyoclub.co.jp",
+  "美野里": "minori-c@taiheiyoclub.co.jp",
+  "成田": "narita-c@taiheiyoclub.co.jp",
+  "八千代": "entry-yachiyo@taiheiyoclub.co.jp",
+  "市原": "ichihara-c@taiheiyoclub.co.jp",
+  "軽井沢": "karuizawa-c@taiheiyoclub.co.jp",
+  "相模": "sagami-c@taiheiyoclub.co.jp",
+  "江南": "kohnan-c@taiheiyoclub.co.jp",
+  "大洗": "sherwood@taiheiyoclub.co.jp",
+  "益子": "mashiko-c@taiheiyoclub.co.jp"
+};
+
+function getClubEmailAddress(r) {
+  if (r.course === PACIFIC_CLUB_NAME) {
+    return PACIFIC_BRANCH_EMAIL_MAP[r.courseName] || "";
+  }
+  return CLUB_EMAIL_MAP[r.course] || "";
+}
+
+function buildReservationEmailMailto(r) {
+  const address = getClubEmailAddress(r);
+  if (!address) return null;
+
+  let courseLine = "";
+  if (r.course) {
+    if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
+      courseLine = `${r.course} ${r.courseName}`;
+    } else if (r.courseName) {
+      courseLine = `${r.course}（${r.courseName}）`;
+    } else {
+      courseLine = r.course;
+    }
+  }
+  const dateLabel = r.playDate ? formatDateLabel(r.playDate) : "";
+  let startLine = r.startTime || "";
+  if (r.startNine) startLine += ` ${r.startNine}`;
+  const playerNames = (r.players || [r.companions || ""]).filter(n => n && n.trim());
+
+  const subject = `ゴルフ予約 同伴者登録のご連絡（${dateLabel || courseLine}）`;
+
+  const bodyLines = [];
+  bodyLines.push("お世話になっております。  以下のラウンドのプレーヤーが決まりましたのでお知らせします。");
+  bodyLines.push("");
+  if (courseLine) bodyLines.push(courseLine);
+  if (dateLabel) bodyLines.push(dateLabel);
+  if (startLine) bodyLines.push(startLine);
+  bodyLines.push("");
+  bodyLines.push("定国直樹");
+  playerNames.forEach(n => bodyLines.push(n));
+  bodyLines.push("");
+  bodyLines.push("どうぞよろしくお願いします。");
+  bodyLines.push("");
+  bodyLines.push("-----");
+  bodyLines.push("定国直樹");
+
+  const body = bodyLines.join("\r\n");
+  return `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+// ---- ここまで Eメール連絡 ----
 
 function buildReservationCopyText(r) {
   const lines = [];
@@ -1787,6 +2223,15 @@ function render() {
 
     actions.appendChild(editBtn);
     actions.appendChild(copyBtn);
+
+    const mailtoUrl = buildReservationEmailMailto(r);
+    if (mailtoUrl) {
+      const emailBtn = document.createElement("a");
+      emailBtn.className = "icon-btn";
+      emailBtn.textContent = "Eメール連絡";
+      emailBtn.href = mailtoUrl;
+      actions.appendChild(emailBtn);
+    }
 
     item.appendChild(main);
     item.appendChild(actions);
