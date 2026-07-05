@@ -411,7 +411,7 @@
     <div class="form-grid">
       <div class="full-width" id="yokohamaPasteWrap" style="display:none;">
         <label for="yokohamaPasteText">横浜CCの予約確認テキストを貼り付けて自動入力（任意）</label>
-        <textarea id="yokohamaPasteText" rows="3" placeholder="例：&#10;スタート枠　スタート時間　コース　プレイヤー名&#10;1組目　9時16分　西 OUT&#10;定国　直樹&#10;馬場　康次"></textarea>
+        <textarea id="yokohamaPasteText" rows="3"></textarea>
         <button type="button" class="btn-secondary" id="yokohamaPasteParseBtn" style="margin-top:6px;">解析して反映</button>
         <span class="paste-status" id="yokohamaPasteStatus"></span>
       </div>
@@ -2050,7 +2050,9 @@ function buildReservationEmailMailto(r) {
   const subject = `ゴルフ予約 同伴者登録のご連絡（${dateLabel || courseLine}）`;
 
   const bodyLines = [];
-  bodyLines.push("お世話になっております。  以下のラウンドのプレーヤーが決まりましたのでお知らせします。");
+  bodyLines.push("お世話になっております。 ");
+  bodyLines.push("");
+  bodyLines.push(" 以下のラウンドのプレーヤーが決まりましたのでお知らせします。");
   bodyLines.push("");
   if (courseLine) bodyLines.push(courseLine);
   if (dateLabel) bodyLines.push(dateLabel);
