@@ -428,7 +428,73 @@
           <option value="09:24">9:24</option>
           <option value="09:32">9:32</option>
           <option value="09:40">9:40</option>
+          <option value="__custom__">その他</option>
         </select>
+      </div>
+      <div class="date-time-field" id="yokohamaNishiTimeCustomWrap" style="display:none;">
+        <label for="yokohamaNishiTimeCustom">スタート時間を入力</label>
+        <input type="time" id="yokohamaNishiTimeCustom">
+      </div>
+      <div class="date-time-field" id="pacificTimeWrap" style="display:none;">
+        <label for="pacificTimeSelect">スタート時間</label>
+        <select id="pacificTimeSelect">
+          <option value="">選択</option>
+          <option value="07:11">7:11</option>
+          <option value="07:18">7:18</option>
+          <option value="07:25">7:25</option>
+          <option value="07:32">7:32</option>
+          <option value="07:39">7:39</option>
+          <option value="07:46">7:46</option>
+          <option value="07:53">7:53</option>
+          <option value="08:00">8:00</option>
+          <option value="08:07">8:07</option>
+          <option value="08:14">8:14</option>
+          <option value="08:21">8:21</option>
+          <option value="08:28">8:28</option>
+          <option value="08:35">8:35</option>
+          <option value="08:42">8:42</option>
+          <option value="08:49">8:49</option>
+          <option value="08:56">8:56</option>
+          <option value="09:03">9:03</option>
+          <option value="09:10">9:10</option>
+          <option value="09:17">9:17</option>
+          <option value="09:24">9:24</option>
+          <option value="09:31">9:31</option>
+          <option value="09:38">9:38</option>
+          <option value="09:45">9:45</option>
+          <option value="09:52">9:52</option>
+          <option value="09:59">9:59</option>
+          <option value="10:06">10:06</option>
+          <option value="10:13">10:13</option>
+          <option value="10:20">10:20</option>
+          <option value="10:27">10:27</option>
+          <option value="10:34">10:34</option>
+          <option value="10:41">10:41</option>
+          <option value="10:48">10:48</option>
+          <option value="10:55">10:55</option>
+          <option value="11:02">11:02</option>
+          <option value="11:09">11:09</option>
+          <option value="11:16">11:16</option>
+          <option value="11:23">11:23</option>
+          <option value="11:30">11:30</option>
+          <option value="11:37">11:37</option>
+          <option value="11:44">11:44</option>
+          <option value="11:51">11:51</option>
+          <option value="11:58">11:58</option>
+          <option value="12:05">12:05</option>
+          <option value="12:12">12:12</option>
+          <option value="12:19">12:19</option>
+          <option value="12:26">12:26</option>
+          <option value="12:33">12:33</option>
+          <option value="12:40">12:40</option>
+          <option value="12:47">12:47</option>
+          <option value="12:54">12:54</option>
+          <option value="__custom__">その他</option>
+        </select>
+      </div>
+      <div class="date-time-field" id="pacificTimeCustomWrap" style="display:none;">
+        <label for="pacificTimeCustom">スタート時間を入力</label>
+        <input type="time" id="pacificTimeCustom">
       </div>
       <div>
         <label for="startNine">スタート</label>
@@ -436,7 +502,7 @@
           <option value="">選択</option>
           <option value="OUT">OUT</option>
           <option value="IN">IN</option>
-          <option value="__custom__">その他</option>
+          <option value="__custom__" id="startNineOtherOption">その他</option>
         </select>
       </div>
       <div class="full-width" id="startNineCustomWrap" style="display:none;">
@@ -477,6 +543,10 @@
         <div class="checkbox-row">
           <input type="checkbox" id="comboSlot">
           <label for="comboSlot">組み合わせ枠</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="registrationComplete">
+          <label for="registrationComplete">登録完了</label>
         </div>
       </div>
       <div class="full-width" id="timeChangeNoteWrap" style="display:none;">
@@ -547,6 +617,13 @@ const startTimeWrap = document.getElementById("startTimeWrap");
 const startTimeSelectWrap = document.getElementById("startTimeSelectWrap");
 const yokohamaNishiTimeWrap = document.getElementById("yokohamaNishiTimeWrap");
 const yokohamaNishiTimeSelect = document.getElementById("yokohamaNishiTimeSelect");
+const yokohamaNishiTimeCustomWrap = document.getElementById("yokohamaNishiTimeCustomWrap");
+const yokohamaNishiTimeCustomInput = document.getElementById("yokohamaNishiTimeCustom");
+const pacificTimeWrap = document.getElementById("pacificTimeWrap");
+const pacificTimeSelect = document.getElementById("pacificTimeSelect");
+const pacificTimeCustomWrap = document.getElementById("pacificTimeCustomWrap");
+const pacificTimeCustomInput = document.getElementById("pacificTimeCustom");
+const startNineOtherOption = document.getElementById("startNineOtherOption");
 
 const PACIFIC_CLUB_NAME = "太平洋クラブ";
 const YOKOHAMA_CC_NAME = "横浜CC";
@@ -556,8 +633,20 @@ courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
   updateCourseNameUI();
   updateStartTimeUI();
+  updateStartNineUI();
   renderFrequentPlayers();
 });
+
+function updateStartNineUI() {
+  const restrict = courseSelect.value === YOKOHAMA_CC_NAME || courseSelect.value === CHECKMATE_CC_NAME;
+  startNineOtherOption.style.display = restrict ? "none" : "";
+  startNineOtherOption.disabled = restrict;
+  if (restrict && startNineSelect.value === "__custom__") {
+    startNineSelect.value = "";
+    startNineCustomWrap.style.display = "none";
+    startNineCustomInput.value = "";
+  }
+}
 
 pacificBranchSelect.addEventListener("change", () => {
   pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
@@ -565,6 +654,14 @@ pacificBranchSelect.addEventListener("change", () => {
 
 yokohamaCourseSelect.addEventListener("change", () => {
   updateStartTimeUI();
+});
+
+yokohamaNishiTimeSelect.addEventListener("change", () => {
+  yokohamaNishiTimeCustomWrap.style.display = yokohamaNishiTimeSelect.value === "__custom__" ? "block" : "none";
+});
+
+pacificTimeSelect.addEventListener("change", () => {
+  pacificTimeCustomWrap.style.display = pacificTimeSelect.value === "__custom__" ? "block" : "none";
 });
 
 function updateCourseNameUI() {
@@ -577,6 +674,8 @@ function updateCourseNameUI() {
     pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
   } else if (courseSelect.value === YOKOHAMA_CC_NAME) {
     yokohamaCourseWrap.style.display = "block";
+  } else if (courseSelect.value === CHECKMATE_CC_NAME) {
+    // チェックメイトCCはコース名の選択が不要
   } else {
     courseNameWrap.style.display = "block";
   }
@@ -586,12 +685,19 @@ function updateStartTimeUI() {
   startTimeWrap.style.display = "none";
   startTimeSelectWrap.style.display = "none";
   yokohamaNishiTimeWrap.style.display = "none";
+  pacificTimeWrap.style.display = "none";
   if (courseSelect.value === CHECKMATE_CC_NAME) {
     startTimeSelectWrap.style.display = "block";
   } else if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
     yokohamaNishiTimeWrap.style.display = "block";
+    yokohamaNishiTimeCustomWrap.style.display = yokohamaNishiTimeSelect.value === "__custom__" ? "block" : "none";
+  } else if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    pacificTimeWrap.style.display = "block";
+    pacificTimeCustomWrap.style.display = pacificTimeSelect.value === "__custom__" ? "block" : "none";
   } else {
     startTimeWrap.style.display = "block";
+    yokohamaNishiTimeCustomWrap.style.display = "none";
+    pacificTimeCustomWrap.style.display = "none";
   }
 }
 
@@ -600,7 +706,16 @@ function getStartTimeValue() {
     return startTimeSelect.value;
   }
   if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
+    if (yokohamaNishiTimeSelect.value === "__custom__") {
+      return yokohamaNishiTimeCustomInput.value;
+    }
     return yokohamaNishiTimeSelect.value;
+  }
+  if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    if (pacificTimeSelect.value === "__custom__") {
+      return pacificTimeCustomInput.value;
+    }
+    return pacificTimeSelect.value;
   }
   return startTimeInput.value;
 }
@@ -609,10 +724,31 @@ function setStartTimeValue(value) {
   startTimeInput.value = "";
   startTimeSelect.value = "";
   yokohamaNishiTimeSelect.value = "";
+  yokohamaNishiTimeCustomInput.value = "";
+  yokohamaNishiTimeCustomWrap.style.display = "none";
+  pacificTimeSelect.value = "";
+  pacificTimeCustomInput.value = "";
+  pacificTimeCustomWrap.style.display = "none";
   if (courseSelect.value === CHECKMATE_CC_NAME) {
     startTimeSelect.value = value || "";
   } else if (courseSelect.value === YOKOHAMA_CC_NAME && yokohamaCourseSelect.value === "西") {
-    yokohamaNishiTimeSelect.value = value || "";
+    const presetValues = Array.from(yokohamaNishiTimeSelect.options).map(o => o.value);
+    if (value && presetValues.includes(value)) {
+      yokohamaNishiTimeSelect.value = value;
+    } else if (value) {
+      yokohamaNishiTimeSelect.value = "__custom__";
+      yokohamaNishiTimeCustomInput.value = value;
+      yokohamaNishiTimeCustomWrap.style.display = "block";
+    }
+  } else if (courseSelect.value === PACIFIC_CLUB_NAME) {
+    const presetValues = Array.from(pacificTimeSelect.options).map(o => o.value);
+    if (value && presetValues.includes(value)) {
+      pacificTimeSelect.value = value;
+    } else if (value) {
+      pacificTimeSelect.value = "__custom__";
+      pacificTimeCustomInput.value = value;
+      pacificTimeCustomWrap.style.display = "block";
+    }
   } else {
     startTimeInput.value = value || "";
   }
@@ -642,6 +778,7 @@ function setCourseValue(courseName) {
   }
   updateCourseNameUI();
   updateStartTimeUI();
+  updateStartNineUI();
   renderFrequentPlayers();
 }
 
@@ -654,6 +791,9 @@ function getCourseNameValue() {
   }
   if (courseSelect.value === YOKOHAMA_CC_NAME) {
     return yokohamaCourseSelect.value;
+  }
+  if (courseSelect.value === CHECKMATE_CC_NAME) {
+    return "";
   }
   return courseNameInput.value.trim();
 }
@@ -678,6 +818,8 @@ function setCourseNameValue(courseNameValue) {
     if (courseNameValue && presetCourses.includes(courseNameValue)) {
       yokohamaCourseSelect.value = courseNameValue;
     }
+  } else if (courseSelect.value === CHECKMATE_CC_NAME) {
+    // チェックメイトCCはコース名の選択が不要
   } else {
     courseNameInput.value = courseNameValue || "";
   }
@@ -792,11 +934,16 @@ function toEventResource(r) {
   description += `\nキャディ: ${r.caddieType || "未設定"}`;
   description += `\nプレーヤー: ${playersLine(r)}`;
   description += `\n組み合わせ枠: ${r.comboSlot ? "あり" : "なし"}`;
+  description += `\n登録完了: ${r.registrationComplete ? "あり" : "なし"}`;
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
+  let summary = `${summaryParts.join(" ")} ${r.startTime}〜`;
+  if (r.registrationComplete) {
+    summary += "（登録済）";
+  }
   return {
-    summary: `${summaryParts.join(" ")} ${r.startTime}〜`,
+    summary,
     description,
     start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
     end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" },
@@ -855,6 +1002,7 @@ function parseEventDescription(desc) {
   let startNine = "";
   let caddieType = "";
   let comboSlot = false;
+  let registrationComplete = false;
   lines.forEach(line => {
     if (line.startsWith("ゴルフ場: ")) {
       const val = line.replace("ゴルフ場: ", "").trim();
@@ -874,12 +1022,14 @@ function parseEventDescription(desc) {
       players = [names[0] || "", names[1] || "", names[2] || ""];
     } else if (line.startsWith("組み合わせ枠: ")) {
       comboSlot = line.replace("組み合わせ枠: ", "").trim() === "あり";
+    } else if (line.startsWith("登録完了: ")) {
+      registrationComplete = line.replace("登録完了: ", "").trim() === "あり";
     } else if (line.startsWith("時間変更依頼: ")) {
       timeChangeRequested = true;
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot };
+  return { course, courseName, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -934,6 +1084,7 @@ async function syncFromCalendar() {
         existing.timeChangeRequested = parsed.timeChangeRequested;
         existing.timeChangeNote = parsed.timeChangeNote;
         existing.comboSlot = parsed.comboSlot;
+        existing.registrationComplete = parsed.registrationComplete;
       } else {
         list.push({
           id: uid(),
@@ -947,7 +1098,8 @@ async function syncFromCalendar() {
           players: parsed.players,
           timeChangeRequested: parsed.timeChangeRequested,
           timeChangeNote: parsed.timeChangeNote,
-          comboSlot: parsed.comboSlot
+          comboSlot: parsed.comboSlot,
+          registrationComplete: parsed.registrationComplete
         });
       }
     });
@@ -1004,6 +1156,7 @@ function formatDateLabel(dateStr) {
 const timeChangeCheckbox = document.getElementById("timeChangeRequested");
 const timeChangeNoteWrap = document.getElementById("timeChangeNoteWrap");
 const comboSlotCheckbox = document.getElementById("comboSlot");
+const registrationCompleteCheckbox = document.getElementById("registrationComplete");
 timeChangeCheckbox.addEventListener("change", () => {
   timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
 });
@@ -1023,6 +1176,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const timeChangeRequested = timeChangeCheckbox.checked;
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
   const comboSlot = comboSlotCheckbox.checked;
+  const registrationComplete = registrationCompleteCheckbox.checked;
 
   if (!gcalToken) {
     alert("Googleカレンダーに接続してから予約を追加・変更してください。");
@@ -1052,13 +1206,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot };
+      targetReservation = { ...r, course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, gcalEventId: null
+      course, courseName, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, gcalEventId: null
     };
     list.push(targetReservation);
   }
@@ -1101,6 +1255,7 @@ function resetForm() {
   document.getElementById("timeChangeNote").value = "";
   timeChangeNoteWrap.style.display = "none";
   comboSlotCheckbox.checked = false;
+  registrationCompleteCheckbox.checked = false;
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
@@ -1126,6 +1281,7 @@ function startEdit(id) {
   document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
   comboSlotCheckbox.checked = !!r.comboSlot;
+  registrationCompleteCheckbox.checked = !!r.registrationComplete;
   document.getElementById("form-title").textContent = "予約を変更";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
@@ -1285,6 +1441,12 @@ function render() {
       comboBadge.textContent = "組み合わせ枠";
       dateLine.appendChild(comboBadge);
     }
+    if (r.registrationComplete) {
+      const regBadge = document.createElement("span");
+      regBadge.className = "sync-tag";
+      regBadge.textContent = "登録済";
+      dateLine.appendChild(regBadge);
+    }
     if (r.gcalEventId) {
       const tag = document.createElement("span");
       tag.className = "sync-tag";
@@ -1324,6 +1486,7 @@ function render() {
 
 updateCourseNameUI();
 updateStartTimeUI();
+updateStartNineUI();
 updateGcalStatusUI();
 initGoogleAuth();
 render();
