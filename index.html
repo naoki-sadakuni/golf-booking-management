@@ -1646,15 +1646,28 @@ async function pushToCalendar(reservation) {
   }
 }
 
+// Googleカレンダーからイベントを削除する。以前はレスポンスを確認せず常に成功したものとして
+// 扱っていたため、トークン切れ・通信エラー等でカレンダー側の削除が失敗しても気づけず、
+// ローカルの予約データだけが削除されてイベントがカレンダー上に残ってしまう不具合があった。
+// 呼び出し側で成否を判断できるよう、成功したかどうかを真偽値で返す。
 async function deleteFromCalendar(eventId) {
-  if (!gcalToken || !eventId) return;
+  if (!eventId) return true; // 削除対象がそもそも無いので成功扱い
+  if (!gcalToken) return false;
   try {
-    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
       method: "DELETE",
       headers: { "Authorization": `Bearer ${gcalToken}` }
     });
+    if (res.status === 401) {
+      gcalToken = null;
+      updateGcalStatusUI();
+      return false;
+    }
+    // 404/410はカレンダー側に既に存在しない（既に削除済み）ということなので成功扱いにする
+    if (res.ok || res.status === 404 || res.status === 410) return true;
+    return false;
   } catch (e) {
-    // 削除に失敗しても致命的ではないので無視
+    return false;
   }
 }
 
@@ -1752,11 +1765,17 @@ async function syncBookingReminders(reservation) {
   return newIds;
 }
 
+// 全てのリマインダーの削除に成功した場合のみ true を返す。
 async function deleteAllBookingReminders(reservation) {
   const ids = reservation.reminderEventIds || {};
+  let allOk = true;
   for (const key of Object.keys(ids)) {
-    if (ids[key]) await deleteFromCalendar(ids[key]);
+    if (ids[key]) {
+      const ok = await deleteFromCalendar(ids[key]);
+      if (!ok) allOk = false;
+    }
   }
+  return allOk;
 }
 
 // ---- 同伴者名を表示する終日イベント ----
@@ -2304,15 +2323,27 @@ async function deleteReservation(id) {
   if (!confirmed) return;
   let list = loadReservations();
   const target = list.find(x => x.id === id);
+
+  // それぞれの削除結果を確認し、Googleカレンダー側の削除が一つでも失敗した場合は
+  // ローカルの予約データを消さずに残す（消してしまうと、失敗したイベントIDが
+  // どこにも記録されなくなり、カレンダー上に予定が残ったまま二度と追跡できなくなるため）。
+  let allOk = true;
   if (target && target.gcalEventId) {
-    await deleteFromCalendar(target.gcalEventId);
+    if (!(await deleteFromCalendar(target.gcalEventId))) allOk = false;
   }
   if (target) {
-    await deleteAllBookingReminders(target);
+    if (!(await deleteAllBookingReminders(target))) allOk = false;
   }
   if (target && target.companionsEventId) {
-    await deleteFromCalendar(target.companionsEventId);
+    if (!(await deleteFromCalendar(target.companionsEventId))) allOk = false;
   }
+
+  if (!allOk) {
+    alert("Googleカレンダー側の削除に失敗した予定があります。カレンダーへの接続状況をご確認の上、もう一度削除をお試しください。");
+    render();
+    return;
+  }
+
   list = list.filter(x => x.id !== id);
   saveReservations(list);
   render();
