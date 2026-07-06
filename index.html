@@ -889,14 +889,14 @@ function computeBookingReminders(course, playDateStr) {
   const dateLabel = formatDateLabel(playDateStr);
 
   if (course === YOKOHAMA_CC_NAME) {
-    const entryStart = new Date(playDate);
-    entryStart.setDate(entryStart.getDate() - 7 * 6);
-    const resultBase = new Date(playDate);
-    resultBase.setDate(resultBase.getDate() - 7 * 4);
-    const firstComeDateTime = new Date(resultBase);
+    const entryDateTime = new Date(playDate);
+    entryDateTime.setDate(entryDateTime.getDate() - 7 * 6);
+    entryDateTime.setHours(10, 0, 0, 0);
+    const firstComeDateTime = new Date(playDate);
+    firstComeDateTime.setDate(firstComeDateTime.getDate() - 7 * 4);
     firstComeDateTime.setHours(10, 0, 0, 0);
     return [
-      { key: "entry", label: "抽選申込開始", allDay: true, date: entryStart, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）` },
+      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）` },
       { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）` }
     ];
   }
