@@ -893,13 +893,10 @@ function computeBookingReminders(course, playDateStr) {
     entryStart.setDate(entryStart.getDate() - 7 * 6);
     const resultBase = new Date(playDate);
     resultBase.setDate(resultBase.getDate() - 7 * 4);
-    const resultDateTime = new Date(resultBase);
-    resultDateTime.setHours(9, 0, 0, 0);
     const firstComeDateTime = new Date(resultBase);
     firstComeDateTime.setHours(10, 0, 0, 0);
     return [
       { key: "entry", label: "抽選申込開始", allDay: true, date: entryStart, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）` },
-      { key: "result", label: "抽選結果発表", allDay: false, start: resultDateTime, title: `横浜CC 抽選結果発表（${dateLabel}プレー分）` },
       { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）` }
     ];
   }
@@ -1729,10 +1726,9 @@ async function pushReminderEvent(reminder, existingEventId) {
 async function syncBookingReminders(reservation) {
   const existingIds = reservation.reminderEventIds || {};
   const status = reservation.status || "確定";
-  // 横浜CCの抽選結果発表（result）はカレンダーには同期しない
   const desired = status === "確定"
     ? []
-    : computeBookingReminders(reservation.course, reservation.playDate).filter(r => r.key !== "result");
+    : computeBookingReminders(reservation.course, reservation.playDate);
   const desiredKeys = desired.map(r => r.key);
   const newIds = {};
 
@@ -2725,8 +2721,7 @@ function render() {
     main.appendChild(subLine);
 
     if (status !== "確定") {
-      // 抽選結果発表の情報は予約一覧には表示しない
-      const reminders = computeBookingReminders(r.course, r.playDate).filter(rem => rem.key !== "result");
+      const reminders = computeBookingReminders(r.course, r.playDate);
       if (reminders.length > 0) {
         const reminderLine = document.createElement("div");
         reminderLine.className = "sub-line";
