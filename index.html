@@ -438,7 +438,7 @@
       </div>
       <div class="full-width" id="pacificPasteWrap" style="display:none;">
         <label for="pacificPasteText">太平洋クラブの予約確認テキストを貼り付けて自動入力（任意）</label>
-        <textarea id="pacificPasteText" rows="3" placeholder="例：&#10;コース　御殿場WEST&#10;...&#10;プレー日　2026年7月12日（日）&#10;スタート時間　ＯＵＴ 7:46〜 4名&#10;...&#10;お名前　定国 直樹（さだくに なおき）&#10;...&#10;お名前　河上 将也 （かわかみ まさや）"></textarea>
+        <textarea id="pacificPasteText" rows="3"></textarea>
         <button type="button" class="btn-secondary" id="pacificPasteParseBtn" style="margin-top:6px;">解析して反映</button>
         <span class="paste-status" id="pacificPasteStatus"></span>
       </div>
@@ -472,6 +472,7 @@
           <option value="江南">江南</option>
           <option value="大洗">大洗</option>
           <option value="益子">益子</option>
+          <option value="ロイヤル">ロイヤル</option>
           <option value="__custom__">その他</option>
         </select>
       </div>
@@ -500,6 +501,12 @@
           <option value="公式HP">公式HP</option>
           <option value="その他">その他</option>
         </select>
+      </div>
+      <div class="full-width course-gate" id="goraPasteWrap" style="display:none;">
+        <label for="goraPasteText">GORAの予約確認テキストを貼り付けて自動入力（任意）</label>
+        <textarea id="goraPasteText" rows="3"></textarea>
+        <button type="button" class="btn-secondary" id="goraPasteParseBtn" style="margin-top:6px;">解析して反映</button>
+        <span class="paste-status" id="goraPasteStatus"></span>
       </div>
       <div class="date-time-field course-gate" id="playDateFieldWrap">
         <label for="playDateButton">プレー日</label>
@@ -807,6 +814,15 @@ const courseNameWrap = document.getElementById("courseNameWrap");
 const courseNameInput = document.getElementById("courseNameInput");
 const bookingSiteWrap = document.getElementById("bookingSiteWrap");
 const bookingSiteSelect = document.getElementById("bookingSiteSelect");
+const goraPasteWrap = document.getElementById("goraPasteWrap");
+
+function updateGoraPasteUI() {
+  goraPasteWrap.style.display = (courseSelect.value === "__custom__" && bookingSiteSelect.value === "GORA") ? "block" : "none";
+}
+
+bookingSiteSelect.addEventListener("change", () => {
+  updateGoraPasteUI();
+});
 const pacificBranchWrap = document.getElementById("pacificBranchWrap");
 const pacificBranchSelect = document.getElementById("pacificBranchSelect");
 const pacificBranchCustomWrap = document.getElementById("pacificBranchCustomWrap");
@@ -928,6 +944,7 @@ courseSelect.addEventListener("change", () => {
   updateCourseGateUI();
   renderFrequentPlayers();
   updateBookingReminderInfoUI();
+  updateGoraPasteUI();
 });
 
 reservationStatusSelect.addEventListener("change", () => {
@@ -1107,6 +1124,7 @@ function setCourseValue(courseName) {
   updateCourseGateUI();
   renderFrequentPlayers();
   updateBookingReminderInfoUI();
+  updateGoraPasteUI();
 }
 
 function getCourseNameValue() {
@@ -1279,10 +1297,14 @@ function parsePacificPasteText(rawText) {
     ? `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`
     : "";
 
-  const nineMatch = halfWidthText.match(/\b(OUT|IN)\b/);
+  // 「スタート時間」の行だけを対象にOUT/IN・時刻を読み取る
+  // （備考欄などに含まれる別の時刻表記（例:前日17:00まで）を誤って拾わないようにするため）
+  const startLineMatch = text.match(/^スタート時間[\t　\s]+(.+)$/m);
+  const startLineHalf = startLineMatch ? toHalfWidth(startLineMatch[1]) : "";
+  const nineMatch = startLineHalf.match(/\b(OUT|IN)\b/);
   const nine = nineMatch ? nineMatch[1] : "";
 
-  const timeMatch = halfWidthText.match(/(\d{1,2}):(\d{2})/);
+  const timeMatch = startLineHalf.match(/(\d{1,2}):(\d{2})/);
   const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2].padStart(2, "0")}` : "";
 
   const nameMatches = [...text.matchAll(/^お名前[\t　\s]+([^\n（(]+)/gm)];
@@ -1290,7 +1312,9 @@ function parsePacificPasteText(rawText) {
     .map(m => m[1].trim())
     .filter(n => n.length > 0 && normalizeName(n) !== OWN_NAME_NORMALIZED);
 
-  return { branch, playDate, nine, time, companions };
+  const noCaddie = /キャディなし/.test(text);
+
+  return { branch, playDate, nine, time, companions, noCaddie };
 }
 
 function applyPacificPasteResult(parsed) {
@@ -1306,6 +1330,9 @@ function applyPacificPasteResult(parsed) {
   }
   if (parsed.playDate) {
     setPlayDateValue(parsed.playDate);
+  }
+  if (parsed.noCaddie) {
+    caddieTypeSelect.value = "セルフ";
   }
   parsed.companions.slice(0, 3).forEach((name, i) => {
     const input = document.getElementById(`player${i + 1}`);
@@ -1323,10 +1350,99 @@ document.getElementById("pacificPasteParseBtn").addEventListener("click", () => 
     return;
   }
   applyPacificPasteResult(parsed);
+  textarea.value = "";
   statusEl.textContent = "反映しました。";
   statusEl.style.color = "var(--green-dark)";
 });
 // ---- ここまで 太平洋クラブ予約確認テキストの貼り付け解析 ----
+
+// ---- GORA予約確認テキストの貼り付け解析（ゴルフ場「その他」×予約サイト「GORA」の場合のみ表示） ----
+function parseGoraPasteText(rawText) {
+  const text = rawText || "";
+
+  const courseMatch = text.match(/ゴルフ場名[\t　\s]+(.+)/);
+  const courseNameValue = courseMatch ? courseMatch[1].trim() : "";
+
+  const dateMatch = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const playDate = dateMatch
+    ? `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`
+    : "";
+
+  const halfWidthText = toHalfWidth(text);
+  const nineMatch = halfWidthText.match(/\b(OUT|IN)\b/);
+  const nine = nineMatch ? nineMatch[1] : "";
+  const timeMatch = halfWidthText.match(/(\d{1,2}):(\d{2})/);
+  const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2].padStart(2, "0")}` : "";
+
+  // 「同伴者・代表者」以降のプレーヤー一覧ブロックだけを対象に氏名を抽出する
+  // （それより前の見出し部分に同じ「IN/OUT+時刻」表記が出るケースを避けるため）
+  const rosterIdx = text.search(/同伴者・代表者|同伴者氏名/);
+  const rosterText = rosterIdx >= 0 ? text.slice(rosterIdx) : text;
+  const rosterLines = rosterText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+
+  const names = [];
+  let collecting = false;
+  rosterLines.forEach(line => {
+    const halfLine = toHalfWidth(line);
+    if (/(OUT|IN)\s*\d{1,2}:\d{2}/.test(halfLine)) {
+      collecting = true;
+      const parts = line.split("\t").map(s => s.trim()).filter(s => s.length > 0);
+      const last = parts[parts.length - 1];
+      if (last && /さん$/.test(last) && !/(OUT|IN)\s*\d{1,2}:\d{2}/.test(toHalfWidth(last))) {
+        names.push(last.replace(/さん$/, "").trim());
+      }
+      return;
+    }
+    if (!collecting) return;
+    if (/代表者|氏名|フリガナ|メールアドレス|郵便番号|電話番号|緊急連絡先/.test(line)) {
+      collecting = false;
+      return;
+    }
+    if (/さん$/.test(line)) {
+      names.push(line.replace(/さん$/, "").trim());
+    }
+  });
+
+  const companions = names
+    .map(n => n.trim())
+    .filter(n => n.length > 0 && normalizeName(n) !== OWN_NAME_NORMALIZED);
+
+  return { courseNameValue, playDate, nine, time, companions };
+}
+
+function applyGoraPasteResult(parsed) {
+  if (parsed.courseNameValue) {
+    courseCustomInput.value = parsed.courseNameValue;
+  }
+  if (parsed.nine) {
+    setStartNineValue(parsed.nine);
+  }
+  if (parsed.time) {
+    setStartTimeValue(parsed.time);
+  }
+  if (parsed.playDate) {
+    setPlayDateValue(parsed.playDate);
+  }
+  parsed.companions.slice(0, 3).forEach((name, i) => {
+    const input = document.getElementById(`player${i + 1}`);
+    if (input) input.value = name;
+  });
+}
+
+document.getElementById("goraPasteParseBtn").addEventListener("click", () => {
+  const textarea = document.getElementById("goraPasteText");
+  const statusEl = document.getElementById("goraPasteStatus");
+  const parsed = parseGoraPasteText(textarea.value);
+  if (!parsed || (!parsed.courseNameValue && !parsed.playDate && !parsed.nine && !parsed.time && parsed.companions.length === 0)) {
+    statusEl.textContent = "解析できませんでした。テキスト形式をご確認ください。";
+    statusEl.style.color = "var(--danger)";
+    return;
+  }
+  applyGoraPasteResult(parsed);
+  statusEl.textContent = "反映しました。";
+  statusEl.style.color = "var(--green-dark)";
+});
+// ---- ここまで GORA予約確認テキストの貼り付け解析 ----
 
 document.querySelectorAll("#courseFilterRow .filter-chip").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -1622,6 +1738,64 @@ async function deleteAllBookingReminders(reservation) {
   for (const key of Object.keys(ids)) {
     if (ids[key]) await deleteFromCalendar(ids[key]);
   }
+}
+
+// ---- 同伴者名を表示する終日イベント ----
+// 実際のラウンド時間のイベントとは別に、プレー日の終日表示欄に「○○さん、△△さん」の形で
+// 同伴者名を一覧表示するための予定を作成する。checkmateccApp タグは付けず、
+// syncFromCalendar の取得対象（予約本体）とは混同しないようにする。
+async function pushCompanionsEvent(reservation, existingEventId) {
+  if (!gcalToken || !reservation.playDate) return existingEventId || null;
+  const pad = n => String(n).padStart(2, "0");
+  const d = new Date(reservation.playDate + "T00:00:00");
+  const next = new Date(d);
+  next.setDate(next.getDate() + 1);
+  const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const nextStr = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+  const playerNames = (reservation.players || []).map(n => (n || "").trim()).filter(n => n);
+  const summary = playerNames.map(n => `${n}さん`).join("、");
+  const event = {
+    summary,
+    start: { date: dateStr },
+    end: { date: nextStr },
+    extendedProperties: { private: { checkmateccCompanions: "true" } }
+  };
+  const url = existingEventId
+    ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingEventId}`
+    : `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+  const method = existingEventId ? "PATCH" : "POST";
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${gcalToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(event)
+    });
+    if (res.status === 401) {
+      gcalToken = null;
+      updateGcalStatusUI();
+      return existingEventId || null;
+    }
+    if (!res.ok) return existingEventId || null;
+    const data = await res.json();
+    return data.id;
+  } catch (e) {
+    return existingEventId || null;
+  }
+}
+
+// 同伴者が1人もいない場合は不要なのでイベントを削除する。いる場合は作成・更新する。
+async function syncCompanionsEvent(reservation) {
+  const playerNames = (reservation.players || []).map(n => (n || "").trim()).filter(n => n);
+  if (playerNames.length === 0) {
+    if (reservation.companionsEventId) {
+      await deleteFromCalendar(reservation.companionsEventId);
+    }
+    return null;
+  }
+  return await pushCompanionsEvent(reservation, reservation.companionsEventId || null);
 }
 
 function parseEventDescription(desc) {
@@ -1980,14 +2154,15 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null, reminderEventIds: {}
+      course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null, reminderEventIds: {}, companionsEventId: null
     };
     list.push(targetReservation);
   }
 
   const gcalEventId = await pushToCalendar(targetReservation);
   const reminderEventIds = await syncBookingReminders(targetReservation);
-  list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId: gcalEventId || r.gcalEventId, reminderEventIds } : r);
+  const companionsEventId = await syncCompanionsEvent(targetReservation);
+  list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId: gcalEventId || r.gcalEventId, reminderEventIds, companionsEventId } : r);
 
   saveReservations(list);
   saveBtn.disabled = false;
@@ -2031,6 +2206,7 @@ function resetForm() {
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("deleteBtn").style.display = "none";
   updateBookingReminderInfoUI();
+  updateGoraPasteUI();
 }
 
 function startEdit(id) {
@@ -2041,6 +2217,7 @@ function startEdit(id) {
   setCourseValue(r.course || "");
   setCourseNameValue(r.courseName || "");
   bookingSiteSelect.value = r.bookingSite || "";
+  updateGoraPasteUI();
   reservationStatusSelect.value = r.status || "確定";
   setPlayDateValue(r.playDate);
   setStartTimeValue(r.startTime);
@@ -2093,6 +2270,9 @@ async function deleteReservation(id) {
   }
   if (target) {
     await deleteAllBookingReminders(target);
+  }
+  if (target && target.companionsEventId) {
+    await deleteFromCalendar(target.companionsEventId);
   }
   list = list.filter(x => x.id !== id);
   saveReservations(list);
@@ -2292,7 +2472,8 @@ const PACIFIC_BRANCH_EMAIL_MAP = {
   "相模": "sagami-c@taiheiyoclub.co.jp",
   "江南": "kohnan-c@taiheiyoclub.co.jp",
   "大洗": "sherwood@taiheiyoclub.co.jp",
-  "益子": "mashiko-c@taiheiyoclub.co.jp"
+  "益子": "mashiko-c@taiheiyoclub.co.jp",
+  "ロイヤル": "royal@taiheiyoclub.co.jp"
 };
 
 function getClubEmailAddress(r) {
@@ -2545,6 +2726,7 @@ updateCourseNameUI();
 updateStartTimeUI();
 updateStartNineUI();
 updateCourseGateUI();
+updateGoraPasteUI();
 resetStartTimeToDefault();
 updateGcalStatusUI();
 initGoogleAuth();
