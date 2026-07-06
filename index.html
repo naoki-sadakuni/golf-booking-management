@@ -896,8 +896,8 @@ function computeBookingReminders(course, playDateStr) {
     firstComeDateTime.setDate(firstComeDateTime.getDate() - 7 * 4);
     firstComeDateTime.setHours(10, 0, 0, 0);
     return [
-      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）` },
-      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）` }
+      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）`, colorId: "1" }, // ラベンダー
+      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）`, colorId: "3" } // ブドウ
     ];
   }
 
@@ -907,14 +907,14 @@ function computeBookingReminders(course, playDateStr) {
     const monthsBefore = isWeekend ? 1 : 2;
     const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
     return [
-      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）` }
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）`, colorId: "8" } // グラファイト
     ];
   }
 
   if (course === PACIFIC_CLUB_NAME) {
     const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - 3, playDate.getDate(), 10, 0, 0, 0);
     return [
-      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ 予約開始（${dateLabel}プレー分）` }
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ 予約開始（${dateLabel}プレー分）`, colorId: "10" } // バジル
     ];
   }
 
@@ -1690,9 +1690,9 @@ async function pushReminderEvent(reminder, existingEventId) {
         ]
       }
     };
-    // 実際に予約が取れる（予約開始・先着予約開始）タイミングは赤色で目立たせる
-    if (reminder.key === "open" || reminder.key === "firstCome") {
-      event.colorId = "11"; // Tomato（赤）
+    // クラブ・種別ごとに指定された色を設定する
+    if (reminder.colorId) {
+      event.colorId = reminder.colorId;
     }
   }
   const url = existingEventId
