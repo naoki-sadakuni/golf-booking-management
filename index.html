@@ -883,7 +883,7 @@ function dateOnlyLabel(d) {
 
 // プレー日・ゴルフ場から、予約開始日時のリマインダー一覧を計算する。
 // クラブごとのルールをここに定義しており、将来的に他クラブを追加する場合はここに追記する。
-function computeBookingReminders(course, playDateStr) {
+function computeBookingReminders(course, playDateStr, competition) {
   if (!course || !playDateStr) return [];
   const playDate = new Date(playDateStr + "T00:00:00");
   const dateLabel = formatDateLabel(playDateStr);
@@ -912,7 +912,9 @@ function computeBookingReminders(course, playDateStr) {
   }
 
   if (course === PACIFIC_CLUB_NAME) {
-    const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - 3, playDate.getDate(), 10, 0, 0, 0);
+    // 通常枠は3ヶ月前同日、競技枠は1ヶ月前同日が予約開始（太平洋クラブの方針による）
+    const monthsBefore = competition ? 1 : 3;
+    const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
     return [
       { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ 予約開始（${dateLabel}プレー分）`, colorId: "10" } // バジル
     ];
@@ -930,7 +932,7 @@ function updateBookingReminderInfoUI() {
     bookingReminderInfoWrap.innerHTML = "";
     return;
   }
-  const reminders = computeBookingReminders(course, playDateStr);
+  const reminders = computeBookingReminders(course, playDateStr, competitionCheckbox.checked);
   if (reminders.length === 0) {
     bookingReminderInfoWrap.style.display = "none";
     bookingReminderInfoWrap.innerHTML = "";
@@ -1748,7 +1750,7 @@ async function syncBookingReminders(reservation) {
   const status = reservation.status || "確定";
   const desired = status === "確定"
     ? []
-    : computeBookingReminders(reservation.course, reservation.playDate);
+    : computeBookingReminders(reservation.course, reservation.playDate, reservation.competition);
   const desiredKeys = desired.map(r => r.key);
   const newIds = {};
 
@@ -2149,6 +2151,11 @@ const notOwnSlotCheckbox = document.getElementById("notOwnSlot");
 const competitionCheckbox = document.getElementById("competition");
 timeChangeCheckbox.addEventListener("change", () => {
   timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
+});
+
+// 太平洋クラブは競技の有無で予約開始日が変わるため、チェック切替時に表示を更新する
+competitionCheckbox.addEventListener("change", () => {
+  updateBookingReminderInfoUI();
 });
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
@@ -2759,7 +2766,7 @@ function render() {
     main.appendChild(subLine);
 
     if (status !== "確定") {
-      const reminders = computeBookingReminders(r.course, r.playDate);
+      const reminders = computeBookingReminders(r.course, r.playDate, r.competition);
       if (reminders.length > 0) {
         const reminderLine = document.createElement("div");
         reminderLine.className = "sub-line";
