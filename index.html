@@ -2635,6 +2635,12 @@ function render() {
     let dateText = r.startTime ? `${formatDateLabel(r.playDate)} ${r.startTime}〜` : `${formatDateLabel(r.playDate)}`;
     if (r.startNine) dateText += `（${r.startNine}）`;
     dateLine.appendChild(document.createTextNode(dateText));
+    if (status !== "未予約" && !r.registrationComplete && !r.notOwnSlot) {
+      const unregisteredBadge = document.createElement("span");
+      unregisteredBadge.className = "sync-tag sync-tag-danger";
+      unregisteredBadge.textContent = "未登録";
+      dateLine.appendChild(unregisteredBadge);
+    }
     if (r.timeChangeRequested) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -2658,12 +2664,6 @@ function render() {
       inviteBadge.className = "sync-tag";
       inviteBadge.textContent = "招待枠";
       dateLine.appendChild(inviteBadge);
-    }
-    if (!r.registrationComplete && !r.notOwnSlot) {
-      const unregisteredBadge = document.createElement("span");
-      unregisteredBadge.className = "sync-tag sync-tag-danger";
-      unregisteredBadge.textContent = "未登録";
-      dateLine.appendChild(unregisteredBadge);
     }
     if (r.gcalEventId) {
       const tag = document.createElement("span");
