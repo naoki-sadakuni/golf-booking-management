@@ -883,7 +883,7 @@ function dateOnlyLabel(d) {
 
 // プレー日・ゴルフ場から、予約開始日時のリマインダー一覧を計算する。
 // クラブごとのルールをここに定義しており、将来的に他クラブを追加する場合はここに追記する。
-function computeBookingReminders(course, playDateStr, competition) {
+function computeBookingReminders(course, playDateStr, competition, courseName) {
   if (!course || !playDateStr) return [];
   const playDate = new Date(playDateStr + "T00:00:00");
   const dateLabel = formatDateLabel(playDateStr);
@@ -895,9 +895,10 @@ function computeBookingReminders(course, playDateStr, competition) {
     const firstComeDateTime = new Date(playDate);
     firstComeDateTime.setDate(firstComeDateTime.getDate() - 7 * 4);
     firstComeDateTime.setHours(10, 0, 0, 0);
+    const competitionSuffixY = competition ? "（競技）" : "";
     return [
-      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）`, colorId: "1" }, // ラベンダー
-      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）`, colorId: "3" } // ブドウ
+      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "1" }, // ラベンダー
+      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "3" } // ブドウ
     ];
   }
 
@@ -906,8 +907,9 @@ function computeBookingReminders(course, playDateStr, competition) {
     const isWeekend = dow === 0 || dow === 6;
     const monthsBefore = isWeekend ? 1 : 2;
     const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
+    const competitionSuffixC = competition ? "（競技）" : "";
     return [
-      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）`, colorId: "11" } // トマト
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）${competitionSuffixC}`, colorId: "11" } // トマト
     ];
   }
 
@@ -915,8 +917,10 @@ function computeBookingReminders(course, playDateStr, competition) {
     // 通常枠は3ヶ月前同日、競技枠は1ヶ月前同日が予約開始（太平洋クラブの方針による）
     const monthsBefore = competition ? 1 : 3;
     const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
+    const branchLabel = courseName ? ` ${courseName}` : "";
+    const competitionSuffix = competition ? "（競技）" : "";
     return [
-      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ 予約開始（${dateLabel}プレー分）`, colorId: "10" } // バジル
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ${branchLabel} 予約開始（${dateLabel}プレー分）${competitionSuffix}`, colorId: "10" } // バジル
     ];
   }
 
@@ -932,7 +936,7 @@ function updateBookingReminderInfoUI() {
     bookingReminderInfoWrap.innerHTML = "";
     return;
   }
-  const reminders = computeBookingReminders(course, playDateStr, competitionCheckbox.checked);
+  const reminders = computeBookingReminders(course, playDateStr, competitionCheckbox.checked, getCourseNameValue());
   if (reminders.length === 0) {
     bookingReminderInfoWrap.style.display = "none";
     bookingReminderInfoWrap.innerHTML = "";
@@ -1750,7 +1754,7 @@ async function syncBookingReminders(reservation) {
   const status = reservation.status || "確定";
   const desired = status === "確定"
     ? []
-    : computeBookingReminders(reservation.course, reservation.playDate, reservation.competition);
+    : computeBookingReminders(reservation.course, reservation.playDate, reservation.competition, reservation.courseName);
   const desiredKeys = desired.map(r => r.key);
   const newIds = {};
 
@@ -2766,7 +2770,7 @@ function render() {
     main.appendChild(subLine);
 
     if (status !== "確定") {
-      const reminders = computeBookingReminders(r.course, r.playDate, r.competition);
+      const reminders = computeBookingReminders(r.course, r.playDate, r.competition, r.courseName);
       if (reminders.length > 0) {
         const reminderLine = document.createElement("div");
         reminderLine.className = "sub-line";
