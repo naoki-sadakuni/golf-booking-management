@@ -263,6 +263,10 @@
     border-radius: 999px;
     margin-left: 8px;
   }
+  .sync-tag.sync-tag-danger {
+    color: var(--danger);
+    background: #fbe9e7;
+  }
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -2639,7 +2643,7 @@ function render() {
     }
     if (r.comboSlot) {
       const comboBadge = document.createElement("span");
-      comboBadge.className = "badge";
+      comboBadge.className = "sync-tag";
       comboBadge.textContent = "組み合わせ枠";
       dateLine.appendChild(comboBadge);
     }
@@ -2651,9 +2655,15 @@ function render() {
     }
     if (r.notOwnSlot) {
       const inviteBadge = document.createElement("span");
-      inviteBadge.className = "badge";
+      inviteBadge.className = "sync-tag";
       inviteBadge.textContent = "招待枠";
       dateLine.appendChild(inviteBadge);
+    }
+    if (!r.registrationComplete && !r.notOwnSlot) {
+      const unregisteredBadge = document.createElement("span");
+      unregisteredBadge.className = "sync-tag sync-tag-danger";
+      unregisteredBadge.textContent = "未登録";
+      dateLine.appendChild(unregisteredBadge);
     }
     if (r.gcalEventId) {
       const tag = document.createElement("span");
