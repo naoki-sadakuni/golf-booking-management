@@ -907,7 +907,7 @@ function computeBookingReminders(course, playDateStr) {
     const monthsBefore = isWeekend ? 1 : 2;
     const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
     return [
-      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）`, colorId: "8" } // グラファイト
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）`, colorId: "11" } // トマト
     ];
   }
 
@@ -1581,6 +1581,11 @@ function toEventResource(r) {
 
   const pad = n => String(n).padStart(2, "0");
 
+  // 未予約の間はカレンダー上でグラファイト（グレー）色にして目立たせ、
+  // 確定（またはそれ以外のステータス）に変わったらデフォルトの色に戻す。
+  // colorId を明示的に null にすることで、PATCH時にカレンダーの既定色にリセットされる。
+  const colorId = status === "未予約" ? "8" : null;
+
   if (!r.startTime) {
     // スタート時間未定（未予約・抽選待などの仮予定）は終日イベントとして登録する
     const start = new Date(r.playDate + "T00:00:00");
@@ -1593,7 +1598,8 @@ function toEventResource(r) {
       description,
       start: { date: startDateStr },
       end: { date: endDateStr },
-      extendedProperties: { private: { checkmateccApp: "true" } }
+      extendedProperties: { private: { checkmateccApp: "true" } },
+      colorId
     };
   }
 
@@ -1606,7 +1612,8 @@ function toEventResource(r) {
     description,
     start: { dateTime: startDateTime, timeZone: "Asia/Tokyo" },
     end: { dateTime: endDateTime, timeZone: "Asia/Tokyo" },
-    extendedProperties: { private: { checkmateccApp: "true" } }
+    extendedProperties: { private: { checkmateccApp: "true" } },
+    colorId
   };
 }
 
