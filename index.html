@@ -267,6 +267,10 @@
     color: var(--danger);
     background: #fbe9e7;
   }
+  .sync-tag.sync-tag-orange {
+    color: #e65100;
+    background: #ffe0b2;
+  }
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -748,6 +752,10 @@
         <div class="checkbox-row">
           <input type="checkbox" id="notOwnSlot">
           <label for="notOwnSlot">自分の予約枠ではない</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="competition">
+          <label for="competition">競技</label>
         </div>
       </div>
       <div class="full-width course-gate" id="timeChangeNoteWrap" style="display:none;">
@@ -1550,6 +1558,7 @@ function toEventResource(r) {
   description += `\n組み合わせ枠: ${r.comboSlot ? "あり" : "なし"}`;
   description += `\n登録完了: ${r.registrationComplete ? "あり" : "なし"}`;
   description += `\n自分の予約枠ではない: ${r.notOwnSlot ? "あり" : "なし"}`;
+  description += `\n競技: ${r.competition ? "あり" : "なし"}`;
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
@@ -1568,6 +1577,9 @@ function toEventResource(r) {
     summary += "（未予約）";
   } else if (status === "抽選待") {
     summary += "（抽選待）";
+  }
+  if (r.competition) {
+    summary += "（競技）";
   }
 
   const pad = n => String(n).padStart(2, "0");
@@ -1748,6 +1760,16 @@ async function deleteAllBookingReminders(reservation) {
 // 実際のラウンド時間のイベントとは別に、プレー日の終日表示欄に「○○さん、△△さん」の形で
 // 同伴者名を一覧表示するための予定を作成する。checkmateccApp タグは付けず、
 // syncFromCalendar の取得対象（予約本体）とは混同しないようにする。
+// 組み合わせ枠・競技の場合は個別の同伴者名がいないため、代わりに「組み合わせ」「競技」と表示する。
+function buildCompanionsEventSummary(reservation) {
+  const specialLabels = [];
+  if (reservation.comboSlot) specialLabels.push("組み合わせ");
+  if (reservation.competition) specialLabels.push("競技");
+  if (specialLabels.length > 0) return specialLabels.join("、");
+  const playerNames = (reservation.players || []).map(n => (n || "").trim()).filter(n => n);
+  return playerNames.map(n => `${n}さん`).join("、");
+}
+
 async function pushCompanionsEvent(reservation, existingEventId) {
   if (!gcalToken || !reservation.playDate) return existingEventId || null;
   const pad = n => String(n).padStart(2, "0");
@@ -1756,8 +1778,7 @@ async function pushCompanionsEvent(reservation, existingEventId) {
   next.setDate(next.getDate() + 1);
   const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const nextStr = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
-  const playerNames = (reservation.players || []).map(n => (n || "").trim()).filter(n => n);
-  const summary = playerNames.map(n => `${n}さん`).join("、");
+  const summary = buildCompanionsEventSummary(reservation);
   const event = {
     summary,
     start: { date: dateStr },
@@ -1790,10 +1811,12 @@ async function pushCompanionsEvent(reservation, existingEventId) {
   }
 }
 
-// 同伴者が1人もいない場合は不要なのでイベントを削除する。いる場合は作成・更新する。
+// 同伴者が1人もおらず、組み合わせ枠・競技でもない場合は不要なのでイベントを削除する。
+// それ以外（同伴者がいる、または組み合わせ枠／競技である）場合は作成・更新する。
 async function syncCompanionsEvent(reservation) {
   const playerNames = (reservation.players || []).map(n => (n || "").trim()).filter(n => n);
-  if (playerNames.length === 0) {
+  const isSpecial = !!(reservation.comboSlot || reservation.competition);
+  if (playerNames.length === 0 && !isSpecial) {
     if (reservation.companionsEventId) {
       await deleteFromCalendar(reservation.companionsEventId);
     }
@@ -1816,6 +1839,7 @@ function parseEventDescription(desc) {
   let comboSlot = false;
   let registrationComplete = false;
   let notOwnSlot = false;
+  let competition = false;
   lines.forEach(line => {
     if (line.startsWith("ゴルフ場: ")) {
       const val = line.replace("ゴルフ場: ", "").trim();
@@ -1844,12 +1868,14 @@ function parseEventDescription(desc) {
       registrationComplete = line.replace("登録完了: ", "").trim() === "あり";
     } else if (line.startsWith("自分の予約枠ではない: ")) {
       notOwnSlot = line.replace("自分の予約枠ではない: ", "").trim() === "あり";
+    } else if (line.startsWith("競技: ")) {
+      competition = line.replace("競技: ", "").trim() === "あり";
     } else if (line.startsWith("時間変更依頼: ")) {
       timeChangeRequested = true;
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, bookingSite, status, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+  return { course, courseName, bookingSite, status, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, competition };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -1920,6 +1946,7 @@ async function syncFromCalendar() {
         existing.comboSlot = parsed.comboSlot;
         existing.registrationComplete = parsed.registrationComplete;
         existing.notOwnSlot = parsed.notOwnSlot;
+        existing.competition = parsed.competition;
       } else {
         list.push({
           id: uid(),
@@ -1938,6 +1965,7 @@ async function syncFromCalendar() {
           comboSlot: parsed.comboSlot,
           registrationComplete: parsed.registrationComplete,
           notOwnSlot: parsed.notOwnSlot,
+          competition: parsed.competition,
           reminderEventIds: {}
         });
       }
@@ -2096,6 +2124,7 @@ const timeChangeNoteWrap = document.getElementById("timeChangeNoteWrap");
 const comboSlotCheckbox = document.getElementById("comboSlot");
 const registrationCompleteCheckbox = document.getElementById("registrationComplete");
 const notOwnSlotCheckbox = document.getElementById("notOwnSlot");
+const competitionCheckbox = document.getElementById("competition");
 timeChangeCheckbox.addEventListener("change", () => {
   timeChangeNoteWrap.style.display = timeChangeCheckbox.checked ? "block" : "none";
 });
@@ -2119,6 +2148,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const comboSlot = comboSlotCheckbox.checked;
   const registrationComplete = registrationCompleteCheckbox.checked;
   const notOwnSlot = notOwnSlotCheckbox.checked;
+  const competition = competitionCheckbox.checked;
 
   if (!gcalToken) {
     alert("Googleカレンダーに接続してから予約を追加・変更してください。");
@@ -2152,13 +2182,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+      targetReservation = { ...r, course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, competition };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null, reminderEventIds: {}, companionsEventId: null
+      course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, competition, gcalEventId: null, reminderEventIds: {}, companionsEventId: null
     };
     list.push(targetReservation);
   }
@@ -2205,6 +2235,7 @@ function resetForm() {
   comboSlotCheckbox.checked = false;
   registrationCompleteCheckbox.checked = false;
   notOwnSlotCheckbox.checked = false;
+  competitionCheckbox.checked = false;
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
@@ -2237,6 +2268,7 @@ function startEdit(id) {
   comboSlotCheckbox.checked = !!r.comboSlot;
   registrationCompleteCheckbox.checked = !!r.registrationComplete;
   notOwnSlotCheckbox.checked = !!r.notOwnSlot;
+  competitionCheckbox.checked = !!r.competition;
   document.getElementById("form-title").textContent = "予約を変更";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
@@ -2635,6 +2667,12 @@ function render() {
     let dateText = r.startTime ? `${formatDateLabel(r.playDate)} ${r.startTime}〜` : `${formatDateLabel(r.playDate)}`;
     if (r.startNine) dateText += `（${r.startNine}）`;
     dateLine.appendChild(document.createTextNode(dateText));
+    if (r.competition) {
+      const competitionBadge = document.createElement("span");
+      competitionBadge.className = "sync-tag sync-tag-orange";
+      competitionBadge.textContent = "競技";
+      dateLine.appendChild(competitionBadge);
+    }
     if (status !== "未予約" && !r.registrationComplete && !r.notOwnSlot) {
       const unregisteredBadge = document.createElement("span");
       unregisteredBadge.className = "sync-tag sync-tag-danger";
