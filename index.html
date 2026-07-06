@@ -456,15 +456,6 @@
         <label for="courseCustom">ゴルフ場名を入力</label>
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
-      <div class="full-width course-gate" id="reservationStatusWrap">
-        <label for="reservationStatus">ステータス</label>
-        <select id="reservationStatus">
-          <option value="確定" selected>確定</option>
-          <option value="未予約">未予約</option>
-          <option value="抽選待">抽選待</option>
-        </select>
-      </div>
-      <div class="full-width course-gate" id="bookingReminderInfoWrap" style="display:none;"></div>
       <div class="full-width course-gate" id="pacificBranchWrap" style="display:none;">
         <label for="pacificBranchSelect">コース</label>
         <select id="pacificBranchSelect">
@@ -721,6 +712,15 @@
           <input type="text" id="player3">
         </div>
       </div>
+      <div class="full-width course-gate" id="reservationStatusWrap">
+        <label for="reservationStatus">ステータス</label>
+        <select id="reservationStatus">
+          <option value="確定" selected>確定</option>
+          <option value="未予約">未予約</option>
+          <option value="抽選待">抽選待</option>
+        </select>
+      </div>
+      <div class="full-width course-gate" id="bookingReminderInfoWrap" style="display:none;"></div>
       <div class="full-width course-gate">
         <div class="checkbox-row">
           <input type="checkbox" id="timeChangeRequested">
@@ -1551,8 +1551,20 @@ async function pushReminderEvent(reminder, existingEventId) {
       summary: reminder.title,
       start: { dateTime: startISO, timeZone: "Asia/Tokyo" },
       end: { dateTime: endISO, timeZone: "Asia/Tokyo" },
-      extendedProperties: { private: { checkmateccReminder: "true" } }
+      extendedProperties: { private: { checkmateccReminder: "true" } },
+      // 開始10分前と開始時刻の2回、ポップアップ通知でアラートする
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: "popup", minutes: 10 },
+          { method: "popup", minutes: 0 }
+        ]
+      }
     };
+    // 実際に予約が取れる（予約開始・先着予約開始）タイミングは赤色で目立たせる
+    if (reminder.key === "open" || reminder.key === "firstCome") {
+      event.colorId = "11"; // Tomato（赤）
+    }
   }
   const url = existingEventId
     ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingEventId}`
@@ -1585,7 +1597,10 @@ async function pushReminderEvent(reminder, existingEventId) {
 async function syncBookingReminders(reservation) {
   const existingIds = reservation.reminderEventIds || {};
   const status = reservation.status || "確定";
-  const desired = status === "確定" ? [] : computeBookingReminders(reservation.course, reservation.playDate);
+  // 横浜CCの抽選結果発表（result）はカレンダーには同期しない
+  const desired = status === "確定"
+    ? []
+    : computeBookingReminders(reservation.course, reservation.playDate).filter(r => r.key !== "result");
   const desiredKeys = desired.map(r => r.key);
   const newIds = {};
 
@@ -2481,7 +2496,8 @@ function render() {
     main.appendChild(subLine);
 
     if (status !== "確定") {
-      const reminders = computeBookingReminders(r.course, r.playDate);
+      // 抽選結果発表の情報は予約一覧には表示しない
+      const reminders = computeBookingReminders(r.course, r.playDate).filter(rem => rem.key !== "result");
       if (reminders.length > 0) {
         const reminderLine = document.createElement("div");
         reminderLine.className = "sub-line";
