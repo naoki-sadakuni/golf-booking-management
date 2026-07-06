@@ -96,6 +96,27 @@
     margin-left: 8px;
     font-size: 12px;
   }
+  .booking-reminder-info {
+    background: #f0f6f0;
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--green-dark);
+    line-height: 1.7;
+  }
+  .status-tag {
+    display: inline-block;
+    font-size: 12px;
+    color: #fff;
+    background: var(--muted);
+    padding: 2px 9px;
+    border-radius: 999px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .status-tag.status-mikakutei { background: #e0a300; }
+  .status-tag.status-chusenmachi { background: #c77b00; }
   .course-tag {
     display: inline-block;
     font-size: 12px;
@@ -435,6 +456,15 @@
         <label for="courseCustom">ゴルフ場名を入力</label>
         <input type="text" id="courseCustom" placeholder="例: 〇〇カントリークラブ">
       </div>
+      <div class="full-width course-gate" id="reservationStatusWrap">
+        <label for="reservationStatus">ステータス</label>
+        <select id="reservationStatus">
+          <option value="確定" selected>確定</option>
+          <option value="未予約">未予約</option>
+          <option value="抽選待">抽選待</option>
+        </select>
+      </div>
+      <div class="full-width course-gate" id="bookingReminderInfoWrap" style="display:none;"></div>
       <div class="full-width course-gate" id="pacificBranchWrap" style="display:none;">
         <label for="pacificBranchSelect">コース</label>
         <select id="pacificBranchSelect">
@@ -800,10 +830,95 @@ const pacificTimeSelect = document.getElementById("pacificTimeSelect");
 const pacificTimeCustomWrap = document.getElementById("pacificTimeCustomWrap");
 const pacificTimeCustomInput = document.getElementById("pacificTimeCustom");
 const startNineOtherOption = document.getElementById("startNineOtherOption");
+const reservationStatusSelect = document.getElementById("reservationStatus");
+const bookingReminderInfoWrap = document.getElementById("bookingReminderInfoWrap");
 
 const PACIFIC_CLUB_NAME = "太平洋クラブ";
 const YOKOHAMA_CC_NAME = "横浜CC";
 const CHECKMATE_CC_NAME = "チェックメイトCC";
+
+// ---- 予約開始日（抽選・受付開始）の自動計算とリマインダー ----
+// 「Nヶ月前の同日」計算は、JSのDateコンストラクタが日付オーバーフロー時に
+// 自動的に翌月へ繰り越してくれる仕様をそのまま利用している
+// （例: 7月31日の1ヶ月前 = 6月31日 → 6月は30日までなので自動的に7月1日になる）
+function pad2n(n) { return String(n).padStart(2, "0"); }
+
+function dateTimeLabel(d) {
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）${pad2n(d.getHours())}:${pad2n(d.getMinutes())}`;
+}
+
+function dateOnlyLabel(d) {
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
+// プレー日・ゴルフ場から、予約開始日時のリマインダー一覧を計算する。
+// クラブごとのルールをここに定義しており、将来的に他クラブを追加する場合はここに追記する。
+function computeBookingReminders(course, playDateStr) {
+  if (!course || !playDateStr) return [];
+  const playDate = new Date(playDateStr + "T00:00:00");
+  const dateLabel = formatDateLabel(playDateStr);
+
+  if (course === YOKOHAMA_CC_NAME) {
+    const entryStart = new Date(playDate);
+    entryStart.setDate(entryStart.getDate() - 7 * 6);
+    const resultBase = new Date(playDate);
+    resultBase.setDate(resultBase.getDate() - 7 * 4);
+    const resultDateTime = new Date(resultBase);
+    resultDateTime.setHours(9, 0, 0, 0);
+    const firstComeDateTime = new Date(resultBase);
+    firstComeDateTime.setHours(10, 0, 0, 0);
+    return [
+      { key: "entry", label: "抽選申込開始", allDay: true, date: entryStart, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）` },
+      { key: "result", label: "抽選結果発表", allDay: false, start: resultDateTime, title: `横浜CC 抽選結果発表（${dateLabel}プレー分）` },
+      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）` }
+    ];
+  }
+
+  if (course === CHECKMATE_CC_NAME) {
+    const dow = playDate.getDay(); // 0=日, 6=土
+    const isWeekend = dow === 0 || dow === 6;
+    const monthsBefore = isWeekend ? 1 : 2;
+    const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - monthsBefore, playDate.getDate(), 10, 0, 0, 0);
+    return [
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `チェックメイトCC 予約開始（${dateLabel}プレー分）` }
+    ];
+  }
+
+  if (course === PACIFIC_CLUB_NAME) {
+    const openDate = new Date(playDate.getFullYear(), playDate.getMonth() - 3, playDate.getDate(), 10, 0, 0, 0);
+    return [
+      { key: "open", label: "予約開始", allDay: false, start: openDate, title: `太平洋クラブ 予約開始（${dateLabel}プレー分）` }
+    ];
+  }
+
+  return [];
+}
+
+function updateBookingReminderInfoUI() {
+  const status = reservationStatusSelect.value;
+  const playDateStr = document.getElementById("playDate").value;
+  const course = getCourseValue();
+  if (status === "確定" || !playDateStr) {
+    bookingReminderInfoWrap.style.display = "none";
+    bookingReminderInfoWrap.innerHTML = "";
+    return;
+  }
+  const reminders = computeBookingReminders(course, playDateStr);
+  if (reminders.length === 0) {
+    bookingReminderInfoWrap.style.display = "none";
+    bookingReminderInfoWrap.innerHTML = "";
+    return;
+  }
+  const lines = reminders.map(r => {
+    const when = r.allDay ? dateOnlyLabel(r.date) : dateTimeLabel(r.start);
+    return `${r.label}: ${when}`;
+  });
+  bookingReminderInfoWrap.className = "full-width course-gate booking-reminder-info";
+  bookingReminderInfoWrap.innerHTML = lines.join("<br>");
+  bookingReminderInfoWrap.style.display = "block";
+}
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
@@ -812,6 +927,11 @@ courseSelect.addEventListener("change", () => {
   updateStartNineUI();
   updateCourseGateUI();
   renderFrequentPlayers();
+  updateBookingReminderInfoUI();
+});
+
+reservationStatusSelect.addEventListener("change", () => {
+  updateBookingReminderInfoUI();
 });
 
 function updateCourseGateUI() {
@@ -986,6 +1106,7 @@ function setCourseValue(courseName) {
   updateStartNineUI();
   updateCourseGateUI();
   renderFrequentPlayers();
+  updateBookingReminderInfoUI();
 }
 
 function getCourseNameValue() {
@@ -1294,11 +1415,7 @@ function playersLine(r) {
 }
 
 function toEventResource(r) {
-  const startDateTime = `${r.playDate}T${r.startTime}:00`;
-  const end = new Date(`${r.playDate}T${r.startTime}:00`);
-  end.setHours(end.getHours() + GCAL_ROUND_HOURS);
-  const pad = n => String(n).padStart(2, "0");
-  const endDateTime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
+  const status = r.status || "確定";
   const courseName = r.course && r.course.trim() ? r.course.trim() : "ゴルフ場未設定";
   const summaryParts = [courseName];
   if (r.courseName && r.courseName.trim()) summaryParts.push(r.courseName.trim());
@@ -1306,6 +1423,7 @@ function toEventResource(r) {
   let description = `ゴルフ場: ${courseName}`;
   description += `\nコース名: ${r.courseName && r.courseName.trim() ? r.courseName.trim() : "なし"}`;
   if (r.bookingSite) description += `\n予約サイト: ${r.bookingSite}`;
+  description += `\nステータス: ${status}`;
   description += `\nスタート: ${r.startNine || "未設定"}`;
   description += `\nキャディ: ${r.caddieType || "未設定"}`;
   description += `\nプレーヤー: ${playersLine(r)}`;
@@ -1315,7 +1433,8 @@ function toEventResource(r) {
   if (r.timeChangeRequested) {
     description += `\n時間変更依頼: ${r.timeChangeNote || "あり"}`;
   }
-  let summary = `${summaryParts.join(" ")} ${r.startTime}〜`;
+
+  let summary = r.startTime ? `${summaryParts.join(" ")} ${r.startTime}〜` : summaryParts.join(" ");
   if (r.comboSlot) {
     summary += "（組み合わせ枠）";
   }
@@ -1325,6 +1444,34 @@ function toEventResource(r) {
   if (r.notOwnSlot) {
     summary += "（招待枠）";
   }
+  if (status === "未予約") {
+    summary += "（未予約）";
+  } else if (status === "抽選待") {
+    summary += "（抽選待）";
+  }
+
+  const pad = n => String(n).padStart(2, "0");
+
+  if (!r.startTime) {
+    // スタート時間未定（未予約・抽選待などの仮予定）は終日イベントとして登録する
+    const start = new Date(r.playDate + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const startDateStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+    const endDateStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    return {
+      summary,
+      description,
+      start: { date: startDateStr },
+      end: { date: endDateStr },
+      extendedProperties: { private: { checkmateccApp: "true" } }
+    };
+  }
+
+  const startDateTime = `${r.playDate}T${r.startTime}:00`;
+  const end = new Date(`${r.playDate}T${r.startTime}:00`);
+  end.setHours(end.getHours() + GCAL_ROUND_HOURS);
+  const endDateTime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
   return {
     summary,
     description,
@@ -1375,6 +1522,93 @@ async function deleteFromCalendar(eventId) {
   }
 }
 
+// ---- 予約開始日（抽選・受付開始）のリマインダーをGoogleカレンダーに同期 ----
+// リマインダーイベントは checkmateccApp タグを付けない（syncFromCalendarの取得対象から外し、
+// 予約本体と混同しないようにするため）。
+async function pushReminderEvent(reminder, existingEventId) {
+  if (!gcalToken) return existingEventId || null;
+  const pad = n => String(n).padStart(2, "0");
+  let event;
+  if (reminder.allDay) {
+    const d = reminder.date;
+    const next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const nextStr = `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+    event = {
+      summary: reminder.title,
+      start: { date: dateStr },
+      end: { date: nextStr },
+      extendedProperties: { private: { checkmateccReminder: "true" } }
+    };
+  } else {
+    const s = reminder.start;
+    const e = new Date(s);
+    e.setHours(e.getHours() + 1);
+    const startISO = `${s.getFullYear()}-${pad(s.getMonth() + 1)}-${pad(s.getDate())}T${pad(s.getHours())}:${pad(s.getMinutes())}:00`;
+    const endISO = `${e.getFullYear()}-${pad(e.getMonth() + 1)}-${pad(e.getDate())}T${pad(e.getHours())}:${pad(e.getMinutes())}:00`;
+    event = {
+      summary: reminder.title,
+      start: { dateTime: startISO, timeZone: "Asia/Tokyo" },
+      end: { dateTime: endISO, timeZone: "Asia/Tokyo" },
+      extendedProperties: { private: { checkmateccReminder: "true" } }
+    };
+  }
+  const url = existingEventId
+    ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingEventId}`
+    : `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+  const method = existingEventId ? "PATCH" : "POST";
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${gcalToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(event)
+    });
+    if (res.status === 401) {
+      gcalToken = null;
+      updateGcalStatusUI();
+      return existingEventId || null;
+    }
+    if (!res.ok) return existingEventId || null;
+    const data = await res.json();
+    return data.id;
+  } catch (e) {
+    return existingEventId || null;
+  }
+}
+
+// 予約のステータス・ゴルフ場・プレー日に応じて、必要なリマインダーだけをカレンダーに残す
+// （不要になったものは削除し、必要なものは作成・更新する）。戻り値は最新のreminderEventIdsマップ。
+async function syncBookingReminders(reservation) {
+  const existingIds = reservation.reminderEventIds || {};
+  const status = reservation.status || "確定";
+  const desired = status === "確定" ? [] : computeBookingReminders(reservation.course, reservation.playDate);
+  const desiredKeys = desired.map(r => r.key);
+  const newIds = {};
+
+  for (const key of Object.keys(existingIds)) {
+    if (!desiredKeys.includes(key) && existingIds[key]) {
+      await deleteFromCalendar(existingIds[key]);
+    }
+  }
+  for (const reminder of desired) {
+    const existingId = existingIds[reminder.key] || null;
+    const newId = await pushReminderEvent(reminder, existingId);
+    if (newId) newIds[reminder.key] = newId;
+  }
+  return newIds;
+}
+
+async function deleteAllBookingReminders(reservation) {
+  const ids = reservation.reminderEventIds || {};
+  for (const key of Object.keys(ids)) {
+    if (ids[key]) await deleteFromCalendar(ids[key]);
+  }
+}
+
 function parseEventDescription(desc) {
   const lines = (desc || "").split("\n");
   let players = ["", "", ""];
@@ -1383,6 +1617,7 @@ function parseEventDescription(desc) {
   let course = "";
   let courseName = "";
   let bookingSite = "";
+  let status = "確定";
   let startNine = "";
   let caddieType = "";
   let comboSlot = false;
@@ -1397,6 +1632,9 @@ function parseEventDescription(desc) {
       courseName = val === "なし" ? "" : val;
     } else if (line.startsWith("予約サイト: ")) {
       bookingSite = line.replace("予約サイト: ", "").trim();
+    } else if (line.startsWith("ステータス: ")) {
+      const val = line.replace("ステータス: ", "").trim();
+      status = (val === "未予約" || val === "抽選待") ? val : "確定";
     } else if (line.startsWith("スタート: ")) {
       const val = line.replace("スタート: ", "").trim();
       startNine = val === "未設定" ? "" : val;
@@ -1418,7 +1656,7 @@ function parseEventDescription(desc) {
       timeChangeNote = line.replace("時間変更依頼: ", "").trim();
     }
   });
-  return { course, courseName, bookingSite, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+  return { course, courseName, bookingSite, status, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
 }
 
 // Googleカレンダーを正として、ローカルの予約一覧をまるごと作り直す。
@@ -1456,15 +1694,22 @@ async function syncFromCalendar() {
       return;
     }
     const data = await res.json();
-    const remoteEvents = (data.items || []).filter(ev => ev.start && ev.start.dateTime);
+    // 終日イベント（未予約・抽選待などスタート時間未定の仮予定）も対象に含める
+    const remoteEvents = (data.items || []).filter(ev => ev.start && (ev.start.dateTime || ev.start.date));
 
     let list = loadReservations();
     const remoteIds = new Set();
 
     remoteEvents.forEach(ev => {
       remoteIds.add(ev.id);
-      const remoteDate = ev.start.dateTime.slice(0, 10);
-      const remoteTime = ev.start.dateTime.slice(11, 16);
+      let remoteDate, remoteTime;
+      if (ev.start.dateTime) {
+        remoteDate = ev.start.dateTime.slice(0, 10);
+        remoteTime = ev.start.dateTime.slice(11, 16);
+      } else {
+        remoteDate = ev.start.date;
+        remoteTime = "";
+      }
       const parsed = parseEventDescription(ev.description);
       const existing = list.find(r => r.gcalEventId === ev.id);
       if (existing) {
@@ -1473,6 +1718,7 @@ async function syncFromCalendar() {
         existing.course = parsed.course;
         existing.courseName = parsed.courseName;
         existing.bookingSite = parsed.bookingSite;
+        existing.status = parsed.status;
         existing.startNine = parsed.startNine;
         existing.caddieType = parsed.caddieType;
         existing.players = parsed.players;
@@ -1490,6 +1736,7 @@ async function syncFromCalendar() {
           course: parsed.course,
           courseName: parsed.courseName,
           bookingSite: parsed.bookingSite,
+          status: parsed.status,
           startNine: parsed.startNine,
           caddieType: parsed.caddieType,
           players: parsed.players,
@@ -1497,7 +1744,8 @@ async function syncFromCalendar() {
           timeChangeNote: parsed.timeChangeNote,
           comboSlot: parsed.comboSlot,
           registrationComplete: parsed.registrationComplete,
-          notOwnSlot: parsed.notOwnSlot
+          notOwnSlot: parsed.notOwnSlot,
+          reminderEventIds: {}
         });
       }
     });
@@ -1572,6 +1820,7 @@ let calendarViewMonth = null; // 0-indexed
 function setPlayDateValue(value) {
   playDateInput.value = value || "";
   playDateButton.textContent = value ? formatDateLabel(value) : "日付を選択";
+  updateBookingReminderInfoUI();
 }
 
 function openCalendar() {
@@ -1662,6 +1911,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
   const courseName = getCourseNameValue();
   const bookingSite = courseSelect.value === "__custom__" ? bookingSiteSelect.value : "";
+  const status = reservationStatusSelect.value;
   const playDate = document.getElementById("playDate").value;
   const startTime = getStartTimeValue();
   const startNine = getStartNineValue();
@@ -1685,11 +1935,15 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     alert("ゴルフ場を選択（または入力）してください。");
     return;
   }
-  if (!playDate || !startTime) {
+  if (!playDate) {
+    alert("プレー日を入力してください。");
+    return;
+  }
+  if (status === "確定" && !startTime) {
     alert("プレー日とスタート時間を入力してください。");
     return;
   }
-  if (startTime < "05:00" || startTime > "15:00") {
+  if (startTime && (startTime < "05:00" || startTime > "15:00")) {
     alert("スタート時間は5:00〜15:00の範囲で入力してください。");
     return;
   }
@@ -1705,21 +1959,20 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   if (editingId) {
     list = list.map(r => {
       if (r.id !== editingId) return r;
-      targetReservation = { ...r, course, courseName, bookingSite, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
+      targetReservation = { ...r, course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot };
       return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, courseName, bookingSite, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null
+      course, courseName, bookingSite, status, playDate, startTime, startNine, caddieType, players, timeChangeRequested, timeChangeNote, comboSlot, registrationComplete, notOwnSlot, gcalEventId: null, reminderEventIds: {}
     };
     list.push(targetReservation);
   }
 
   const gcalEventId = await pushToCalendar(targetReservation);
-  if (gcalEventId) {
-    list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId } : r);
-  }
+  const reminderEventIds = await syncBookingReminders(targetReservation);
+  list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId: gcalEventId || r.gcalEventId, reminderEventIds } : r);
 
   saveReservations(list);
   saveBtn.disabled = false;
@@ -1744,6 +1997,7 @@ function resetForm() {
   setCourseValue("");
   setCourseNameValue("");
   bookingSiteSelect.value = "";
+  reservationStatusSelect.value = "確定";
   setPlayDateValue("");
   resetStartTimeToDefault();
   setStartNineValue("");
@@ -1761,6 +2015,7 @@ function resetForm() {
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("deleteBtn").style.display = "none";
+  updateBookingReminderInfoUI();
 }
 
 function startEdit(id) {
@@ -1771,6 +2026,7 @@ function startEdit(id) {
   setCourseValue(r.course || "");
   setCourseNameValue(r.courseName || "");
   bookingSiteSelect.value = r.bookingSite || "";
+  reservationStatusSelect.value = r.status || "確定";
   setPlayDateValue(r.playDate);
   setStartTimeValue(r.startTime);
   setStartNineValue(r.startNine || "");
@@ -1819,6 +2075,9 @@ async function deleteReservation(id) {
   const target = list.find(x => x.id === id);
   if (target && target.gcalEventId) {
     await deleteFromCalendar(target.gcalEventId);
+  }
+  if (target) {
+    await deleteAllBookingReminders(target);
   }
   list = list.filter(x => x.id !== id);
   saveReservations(list);
@@ -2154,6 +2413,13 @@ function render() {
 
     const dateLine = document.createElement("div");
     dateLine.className = "date-line";
+    const status = r.status || "確定";
+    if (status !== "確定") {
+      const statusTag = document.createElement("span");
+      statusTag.className = "status-tag" + (status === "未予約" ? " status-mikakutei" : " status-chusenmachi");
+      statusTag.textContent = status;
+      dateLine.appendChild(statusTag);
+    }
     if (r.course) {
       const courseTag = document.createElement("span");
       courseTag.className = "course-tag";
@@ -2166,7 +2432,7 @@ function render() {
       }
       dateLine.appendChild(courseTag);
     }
-    let dateText = `${formatDateLabel(r.playDate)} ${r.startTime}〜`;
+    let dateText = r.startTime ? `${formatDateLabel(r.playDate)} ${r.startTime}〜` : `${formatDateLabel(r.playDate)}`;
     if (r.startNine) dateText += `（${r.startNine}）`;
     dateLine.appendChild(document.createTextNode(dateText));
     if (r.timeChangeRequested) {
@@ -2213,6 +2479,20 @@ function render() {
 
     main.appendChild(dateLine);
     main.appendChild(subLine);
+
+    if (status !== "確定") {
+      const reminders = computeBookingReminders(r.course, r.playDate);
+      if (reminders.length > 0) {
+        const reminderLine = document.createElement("div");
+        reminderLine.className = "sub-line";
+        reminderLine.style.color = "var(--green-dark)";
+        reminderLine.textContent = reminders.map(rem => {
+          const when = rem.allDay ? dateOnlyLabel(rem.date) : dateTimeLabel(rem.start);
+          return `${rem.label}: ${when}`;
+        }).join("　／　");
+        main.appendChild(reminderLine);
+      }
+    }
 
     const actions = document.createElement("div");
     actions.className = "res-actions";
