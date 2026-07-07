@@ -896,9 +896,10 @@ function computeBookingReminders(course, playDateStr, competition, courseName) {
     firstComeDateTime.setDate(firstComeDateTime.getDate() - 7 * 4);
     firstComeDateTime.setHours(10, 0, 0, 0);
     const competitionSuffixY = competition ? "（競技）" : "";
+    const yokohamaCourseLabel = courseName ? `（${courseName}）` : "";
     return [
-      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC 抽選申込開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "1" }, // ラベンダー
-      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC 先着予約開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "3" } // ブドウ
+      { key: "entry", label: "抽選申込開始", allDay: false, start: entryDateTime, title: `横浜CC ${yokohamaCourseLabel}抽選申込開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "1" }, // ラベンダー
+      { key: "firstCome", label: "先着予約開始", allDay: false, start: firstComeDateTime, title: `横浜CC ${yokohamaCourseLabel}先着予約開始（${dateLabel}プレー分）${competitionSuffixY}`, colorId: "3" } // ブドウ
     ];
   }
 
@@ -1758,9 +1759,13 @@ async function syncBookingReminders(reservation) {
   const desiredKeys = desired.map(r => r.key);
   const newIds = {};
 
+  // コース・ステータス変更等で不要になったキー（例: 横浜CC→太平洋クラブに変更した際の
+  // entry/firstCome）を削除する。削除に失敗した場合は newIds から落として追跡不能な
+  // 孤立イベントにしてしまわないよう、そのキー・IDを newIds に残し次回また削除を試みる。
   for (const key of Object.keys(existingIds)) {
     if (!desiredKeys.includes(key) && existingIds[key]) {
-      await deleteFromCalendar(existingIds[key]);
+      const ok = await deleteFromCalendar(existingIds[key]);
+      if (!ok) newIds[key] = existingIds[key];
     }
   }
   for (const reminder of desired) {
