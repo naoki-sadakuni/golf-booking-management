@@ -857,6 +857,26 @@ const pacificTimeWrap = document.getElementById("pacificTimeWrap");
 const pacificTimeSelect = document.getElementById("pacificTimeSelect");
 const pacificTimeCustomWrap = document.getElementById("pacificTimeCustomWrap");
 const pacificTimeCustomInput = document.getElementById("pacificTimeCustom");
+// 太平洋クラブの一般的な7分間隔の選択肢（HTMLに書かれている元々の内容をここで保持しておき、
+// 御殿場コース選択時は専用の時刻リストに差し替え、それ以外に戻ったら元に戻す）
+const PACIFIC_GENERIC_TIME_OPTIONS_HTML = pacificTimeSelect.innerHTML;
+const PACIFIC_GOTEMBA_TIMES = [
+  "07:11", "07:18", "07:32", "07:39", "07:53", "08:00", "08:07", "08:14", "08:22", "08:30",
+  "08:38", "08:46", "08:54", "09:02", "09:10", "09:18", "09:26", "09:34", "09:42", "09:50",
+  "09:58", "10:06", "10:14", "10:22", "10:30", "10:38"
+];
+const PACIFIC_GOTEMBA_TIME_OPTIONS_HTML = "<option value=\"\">選択</option>" +
+  PACIFIC_GOTEMBA_TIMES.map(t => `<option value="${t}">${t.replace(/^0/, "")}</option>`).join("") +
+  "<option value=\"__custom__\">その他</option>";
+
+function updatePacificTimeOptions() {
+  const currentValue = pacificTimeSelect.value;
+  pacificTimeSelect.innerHTML = pacificBranchSelect.value === "御殿場"
+    ? PACIFIC_GOTEMBA_TIME_OPTIONS_HTML
+    : PACIFIC_GENERIC_TIME_OPTIONS_HTML;
+  const availableValues = Array.from(pacificTimeSelect.options).map(o => o.value);
+  pacificTimeSelect.value = availableValues.includes(currentValue) ? currentValue : "";
+}
 const startNineOtherOption = document.getElementById("startNineOtherOption");
 const reservationStatusSelect = document.getElementById("reservationStatus");
 const bookingReminderInfoWrap = document.getElementById("bookingReminderInfoWrap");
@@ -989,6 +1009,7 @@ function updateStartNineUI() {
 
 pacificBranchSelect.addEventListener("change", () => {
   pacificBranchCustomWrap.style.display = pacificBranchSelect.value === "__custom__" ? "block" : "none";
+  updatePacificTimeOptions();
 });
 
 yokohamaCourseSelect.addEventListener("change", () => {
@@ -1184,6 +1205,7 @@ function setCourseNameValue(courseNameValue) {
   } else {
     courseNameInput.value = courseNameValue || "";
   }
+  updatePacificTimeOptions();
   updateStartTimeUI();
 }
 
@@ -1999,13 +2021,59 @@ async function syncFromCalendar() {
           registrationComplete: parsed.registrationComplete,
           notOwnSlot: parsed.notOwnSlot,
           competition: parsed.competition,
-          reminderEventIds: {}
+          reminderEventIds: {},
+          companionsEventId: null
         });
       }
     });
 
     // カレンダー側から削除された予約（取得範囲内）はローカルからも取り除く
     list = list.filter(r => !r.gcalEventId || remoteIds.has(r.gcalEventId));
+
+    // ---- 同伴者終日イベントのID紐付けを補正する ----
+    // ローカルに companionsEventId の記録がない状態（別端末で作成した予約を初めて
+    // このブラウザで同期した場合など）で同伴者を編集すると、既存の同伴者イベントを
+    // 見つけられずに新規作成してしまい、カレンダー上に同伴者イベントが2つ表示される
+    // 不具合があった。ここで checkmateccCompanions タグの付いたイベントを日付ごとに
+    // 取得し、各予約に正しいIDを紐付け直す。同じ日付に予約が1件だけの場合に限り、
+    // 重複して残っている同伴者イベントも自動的に削除する。
+    try {
+      const compParams = new URLSearchParams({
+        privateExtendedProperty: "checkmateccCompanions=true",
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: "true",
+        maxResults: "250"
+      });
+      const compRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${compParams}`, {
+        headers: { "Authorization": `Bearer ${gcalToken}` }
+      });
+      if (compRes.ok) {
+        const compData = await compRes.json();
+        const byDate = {};
+        (compData.items || []).forEach(ev => {
+          const date = ev.start && ev.start.date;
+          if (!date) return;
+          if (!byDate[date]) byDate[date] = [];
+          byDate[date].push(ev.id);
+        });
+        for (const date of Object.keys(byDate)) {
+          const candidates = byDate[date];
+          const matching = list.filter(r => r.playDate === date);
+          if (matching.length !== 1) continue; // 同日に複数予約がある場合は誤って紐付けないよう何もしない
+          const target = matching[0];
+          const canonical = candidates.includes(target.companionsEventId) ? target.companionsEventId : candidates[0];
+          target.companionsEventId = canonical;
+          for (const dupId of candidates) {
+            if (dupId !== canonical) {
+              await deleteFromCalendar(dupId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // 同伴者イベントの補正に失敗しても、メインの予約同期自体は継続する
+    }
 
     saveReservations(list);
     render();
