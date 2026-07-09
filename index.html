@@ -948,6 +948,18 @@ function computeBookingReminders(course, playDateStr, competition, courseName) {
   return [];
 }
 
+// 横浜CCのみ抽選待を選択肢に含める（抽選による予約枠があるのは横浜CCのみのため）。
+// それ以外のゴルフ場では 未予約／確定 の2択にする。
+function updateReservationStatusOptions() {
+  const isYokohama = courseSelect.value === YOKOHAMA_CC_NAME;
+  const currentValue = reservationStatusSelect.value;
+  reservationStatusSelect.innerHTML = isYokohama
+    ? '<option value="確定">確定</option><option value="未予約">未予約</option><option value="抽選待">抽選待</option>'
+    : '<option value="確定">確定</option><option value="未予約">未予約</option>';
+  const availableValues = Array.from(reservationStatusSelect.options).map(o => o.value);
+  reservationStatusSelect.value = availableValues.includes(currentValue) ? currentValue : "確定";
+}
+
 function updateBookingReminderInfoUI() {
   const status = reservationStatusSelect.value;
   const playDateStr = document.getElementById("playDate").value;
@@ -978,6 +990,7 @@ courseSelect.addEventListener("change", () => {
   updateStartTimeUI();
   updateStartNineUI();
   updateCourseGateUI();
+  updateReservationStatusOptions();
   renderFrequentPlayers();
   updateBookingReminderInfoUI();
   updateGoraPasteUI();
@@ -1159,6 +1172,7 @@ function setCourseValue(courseName) {
   updateStartTimeUI();
   updateStartNineUI();
   updateCourseGateUI();
+  updateReservationStatusOptions();
   renderFrequentPlayers();
   updateBookingReminderInfoUI();
   updateGoraPasteUI();
@@ -2299,7 +2313,21 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     list.push(targetReservation);
   }
 
+  // 新規予約の場合、実際にGoogleカレンダーへイベントを作成できたかどうかを確認する。
+  // トークンが実は無効（自動サイレント再接続で取得したものが期限切れ等）だった場合、
+  // これまでは作成に失敗してもローカルの予約データだけは無条件で保存してしまい、
+  // 「未接続なのに予約できてしまう」状態になっていた。
+  const hadExistingEventId = !!targetReservation.gcalEventId;
   const gcalEventId = await pushToCalendar(targetReservation);
+
+  if (!gcalToken || (!hadExistingEventId && !gcalEventId)) {
+    alert("Googleカレンダーへの接続が無効なため、予約を保存できませんでした。再度「Googleカレンダーに接続」してからもう一度お試しください。");
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalLabel;
+    updateGcalStatusUI();
+    return;
+  }
+
   const reminderEventIds = await syncBookingReminders(targetReservation);
   const companionsEventId = await syncCompanionsEvent(targetReservation);
   list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId: gcalEventId || r.gcalEventId, reminderEventIds, companionsEventId } : r);
