@@ -1508,6 +1508,9 @@ document.querySelectorAll("#courseFilterRow .filter-chip").forEach(btn => {
 // ---- Google カレンダー連携 ----
 const GOOGLE_CLIENT_ID = "477050098248-osleutait6uvk1a7b14npjtjohdiu0q2.apps.googleusercontent.com";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// このアプリは定国さん専用のため、ログイン時のアカウント選択画面をスキップできるよう
+// 使用するGoogleアカウントを login_hint として指定する。
+const GOOGLE_LOGIN_HINT = "sadakuni@gmail.com";
 const GCAL_ROUND_HOURS = 6; // ゴルフ1ラウンドの想定所要時間（カレンダー表示用）
 let gcalToken = null;
 let gcalTokenClient = null;
@@ -1549,6 +1552,7 @@ function initGoogleAuth() {
   gcalTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: GOOGLE_SCOPE,
+    login_hint: GOOGLE_LOGIN_HINT,
     callback: (resp) => {
       if (resp.error) {
         // 自動再接続の試みが失敗しても、初回接続時と違って無言で諦める
@@ -1573,7 +1577,7 @@ function initGoogleAuth() {
   // 従来通り「Googleカレンダーに接続」ボタンから手動で接続してもらう。
   if (localStorage.getItem(GCAL_EVER_CONNECTED_KEY) === "true") {
     autoConnectAttempted = true;
-    gcalTokenClient.requestAccessToken({ prompt: "" });
+    gcalTokenClient.requestAccessToken({ prompt: "", login_hint: GOOGLE_LOGIN_HINT });
   }
 }
 
@@ -2107,7 +2111,7 @@ document.getElementById("gcalConnectBtn").addEventListener("click", () => {
     alert("Google認証の準備中です。少し待ってからもう一度お試しください。");
     return;
   }
-  gcalTokenClient.requestAccessToken({ prompt: gcalToken ? "" : "consent" });
+  gcalTokenClient.requestAccessToken({ prompt: gcalToken ? "" : "consent", login_hint: GOOGLE_LOGIN_HINT });
 });
 
 document.getElementById("gcalSyncBtn").addEventListener("click", syncFromCalendar);
