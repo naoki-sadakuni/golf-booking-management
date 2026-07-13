@@ -2665,6 +2665,11 @@ function getClubEmailAddress(r) {
   return CLUB_EMAIL_MAP[r.course] || "";
 }
 
+// 以前は mailto: リンクを使用していたが、PCブラウザでは既定のメールソフトが
+// 設定されていない（またはGmail以外になっている）場合に何も起動しないという問題があった。
+// mailto: はOS/ブラウザの既定メールアプリ設定に依存してしまうため、代わりに
+// Gmailのウェブ作成画面を直接開くURL形式に変更する。これはOSの設定に関係なく、
+// どのブラウザでも新しいタブでGmailの作成画面（宛先・件名・本文入力済み）が開く。
 function buildReservationEmailMailto(r) {
   const address = getClubEmailAddress(r);
   if (!address) return null;
@@ -2687,9 +2692,7 @@ function buildReservationEmailMailto(r) {
   const subject = `ゴルフ予約 同伴者登録のご連絡（${dateLabel || courseLine}）`;
 
   const bodyLines = [];
-  bodyLines.push("お世話になっております。 ");
-  bodyLines.push("");
-  bodyLines.push(" 以下のラウンドのプレーヤーが決まりましたのでお知らせします。");
+  bodyLines.push("お世話になっております。  以下のラウンドのプレーヤーが決まりましたのでお知らせします。");
   bodyLines.push("");
   if (courseLine) bodyLines.push(courseLine);
   if (dateLabel) bodyLines.push(dateLabel);
@@ -2698,13 +2701,15 @@ function buildReservationEmailMailto(r) {
   bodyLines.push("定国直樹");
   playerNames.forEach(n => bodyLines.push(n));
   bodyLines.push("");
-  bodyLines.push("どうぞよろしくお願いします。");
+  bodyLines.push("登録して頂ければ返信は不要です。");
+  bodyLines.push("");
+  bodyLines.push("お手数かけますが、どうぞよろしくお願いします。");
   bodyLines.push("");
   bodyLines.push("-----");
   bodyLines.push("定国直樹");
 
   const body = bodyLines.join("\r\n");
-  return `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(address)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 // ---- ここまで Eメール連絡 ----
 
@@ -2906,6 +2911,8 @@ function render() {
       emailBtn.className = "icon-btn";
       emailBtn.textContent = "Eメール連絡";
       emailBtn.href = mailtoUrl;
+      emailBtn.target = "_blank";
+      emailBtn.rel = "noopener";
       actions.appendChild(emailBtn);
     }
 
