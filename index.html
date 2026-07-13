@@ -2665,11 +2665,17 @@ function getClubEmailAddress(r) {
   return CLUB_EMAIL_MAP[r.course] || "";
 }
 
-// 以前は mailto: リンクを使用していたが、PCブラウザでは既定のメールソフトが
-// 設定されていない（またはGmail以外になっている）場合に何も起動しないという問題があった。
-// mailto: はOS/ブラウザの既定メールアプリ設定に依存してしまうため、代わりに
-// Gmailのウェブ作成画面を直接開くURL形式に変更する。これはOSの設定に関係なく、
-// どのブラウザでも新しいタブでGmailの作成画面（宛先・件名・本文入力済み）が開く。
+// スマホ（iOS/Android）かどうかを判定する。
+// スマホではGmailアプリを直接起動する mailto: の方が、Googleアカウントへの
+// ブラウザログインを求められる手間がなく確実なため、PCとスマホでリンク形式を出し分ける。
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// PCブラウザでは既定のメールソフトが設定されていない（またはGmail以外になっている）場合に
+// mailto: が何も起動しないため、PCでは Gmail のウェブ作成画面を直接開くURL形式を使う。
+// スマホでは mailto: の方がブラウザ経由のログインを挟まずGmailアプリを直接起動できるため、
+// スマホでは従来通り mailto: を使う。
 function buildReservationEmailMailto(r) {
   const address = getClubEmailAddress(r);
   if (!address) return null;
@@ -2709,6 +2715,10 @@ function buildReservationEmailMailto(r) {
   bodyLines.push("定国直樹");
 
   const body = bodyLines.join("\r\n");
+
+  if (isMobileDevice()) {
+    return `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
   return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(address)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 // ---- ここまで Eメール連絡 ----
