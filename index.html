@@ -2094,6 +2094,68 @@ async function syncFromCalendar() {
       // 同伴者イベントの補正に失敗しても、メインの予約同期自体は継続する
     }
 
+    // ---- 予約開始日リマインダーのID紐付けを補正する ----
+    // 同伴者イベントと同様、以前の不具合（コース変更時やステータス変更時に削除が
+    // 失敗した場合、そのIDの記録を失ってしまう不具合）によって、reminderEventIds に
+    // 記録されないままカレンダー上にリマインダーが残っている（孤立している）ケースがある。
+    // その状態でリマインダーの内容（タイトル）が変わらない編集をしても、
+    // 古い孤立イベントは残ったまま新しいイベントが作られ、重複して見えてしまう。
+    // ここで checkmateccReminder タグの付いたイベントをタイトル文字列で各予約に
+    // 突き合わせ、正しいIDに紐付け直す。同じタイトルを複数の予約が期待する場合
+    // （同じゴルフ場・同じプレー日の予約が複数あるなど）は誤って紐付けないよう何もしない。
+    try {
+      const remParams = new URLSearchParams({
+        privateExtendedProperty: "checkmateccReminder=true",
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: "true",
+        maxResults: "250"
+      });
+      const remRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${remParams}`, {
+        headers: { "Authorization": `Bearer ${gcalToken}` }
+      });
+      if (remRes.ok) {
+        const remData = await remRes.json();
+        const idsByTitle = {};
+        (remData.items || []).forEach(ev => {
+          const title = ev.summary || "";
+          if (!title) return;
+          if (!idsByTitle[title]) idsByTitle[title] = [];
+          idsByTitle[title].push(ev.id);
+        });
+
+        // タイトルごとに「どの予約のどのキーがそのタイトルを期待しているか」を集計する
+        const expectedByTitle = {};
+        list.forEach(r => {
+          const status = r.status || "確定";
+          if (status === "確定") return;
+          const reminders = computeBookingReminders(r.course, r.playDate, r.competition, r.courseName);
+          reminders.forEach(rem => {
+            if (!expectedByTitle[rem.title]) expectedByTitle[rem.title] = [];
+            expectedByTitle[rem.title].push({ reservation: r, key: rem.key });
+          });
+        });
+
+        for (const title of Object.keys(idsByTitle)) {
+          const candidates = idsByTitle[title];
+          const expected = expectedByTitle[title] || [];
+          if (expected.length !== 1) continue; // 期待する予約が0件または複数件の場合は誤って紐付けないよう何もしない
+          const { reservation: target, key } = expected[0];
+          if (!target.reminderEventIds) target.reminderEventIds = {};
+          const currentId = target.reminderEventIds[key];
+          const canonical = candidates.includes(currentId) ? currentId : candidates[0];
+          target.reminderEventIds[key] = canonical;
+          for (const dupId of candidates) {
+            if (dupId !== canonical) {
+              await deleteFromCalendar(dupId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // リマインダーの補正に失敗しても、メインの予約同期自体は継続する
+    }
+
     saveReservations(list);
     render();
     lastSyncFailed = false;
