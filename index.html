@@ -68,7 +68,7 @@
     display: block;
     margin-bottom: 4px;
   }
-  input[type="date"], input[type="time"], input[type="text"], input[type="datetime-local"], select {
+  input[type="date"], input[type="time"], input[type="text"], select {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
@@ -168,8 +168,6 @@
     display: flex;
     gap: 6px;
     flex-shrink: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
   }
   .icon-btn {
     background: none;
@@ -209,54 +207,6 @@
     border-radius: 999px;
     margin-left: 8px;
   }
-  .status-pill {
-    display: inline-block;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    margin-left: 8px;
-  }
-  .status-pill.pending { background: #fdecea; color: #a13a2d; }
-  .calljob-badge {
-    display: inline-block;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    margin-left: 8px;
-  }
-  .calljob-badge.scheduled { background: #eef2fb; color: #33518f; }
-  .calljob-badge.dialing { background: #fff4e5; color: #9a6400; }
-  .calljob-badge.connected { background: #e6f2ea; color: #1f5c39; }
-  .calljob-badge.failed { background: #fdecea; color: #a13a2d; }
-  .calljob-badge.cancelled { background: #eceeec; color: #6b756f; }
-  .autodial-box {
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-top: 10px;
-    background: #fbfcfb;
-  }
-  .autodial-box .hint {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 6px;
-  }
-  .settings-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .settings-grid h3 {
-    grid-column: 1 / -1;
-    font-size: 13px;
-    color: var(--green-dark);
-    margin: 10px 0 0;
-  }
-  .settings-grid .hint {
-    font-size: 12px;
-    color: var(--muted);
-  }
 </style>
 </head>
 <body>
@@ -275,34 +225,6 @@
         <button class="btn-secondary" id="gcalConnectBtn">Googleカレンダーに接続</button>
         <button class="btn-secondary" id="gcalSyncBtn" style="display:none;">Googleカレンダーから最新を取得</button>
       </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>自動予約電話 設定</h2>
-    <div class="form-grid">
-      <div class="full-width">
-        <label for="apiBaseUrlInput">バックエンドAPIのURL（自動発信システムのエンドポイント。デプロイ後に発行されるURLを入力）</label>
-        <input type="text" id="apiBaseUrlInput" placeholder="例: https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com">
-      </div>
-    </div>
-    <div class="settings-grid">
-      <h3>チェックメイトCC</h3>
-      <div class="full-width">
-        <label for="cm_phone">ゴルフ場電話番号（E.164形式）</label>
-        <input type="text" id="cm_phone" placeholder="+81465xxxxxxx">
-      </div>
-      <div class="full-width hint">予約開始ルール（固定・編集不要）: 平日・祝日は2ヶ月前の同日10:00／土日は1ヶ月前の同日10:00。</div>
-
-      <h3>太平洋クラブ（御殿場コース）</h3>
-      <div class="full-width">
-        <label for="tc_phone">ゴルフ場電話番号（E.164形式）</label>
-        <input type="text" id="tc_phone" placeholder="+81550xxxxxxx">
-      </div>
-      <div class="full-width hint">予約開始ルール（固定・編集不要）: 通常は3ヶ月前の同日10:00。競技（コンペ）の場合のみ1ヶ月前の同日10:00（予約フォームの「競技ラウンド」チェックで切り替え）。</div>
-    </div>
-    <div class="form-actions">
-      <button class="btn-secondary" id="saveCallSettingsBtn">自動発信設定を保存</button>
     </div>
   </div>
 
@@ -357,30 +279,6 @@
         <label for="timeChangeNote">変更依頼の内容・希望時間など</label>
         <input type="text" id="timeChangeNote" placeholder="例: 9:00台に変更希望、連絡済み">
       </div>
-      <div class="full-width">
-        <label>ステータス</label>
-        <div class="checkbox-row">
-          <label style="margin-right:16px; font-size:14px; display:flex; align-items:center; gap:4px;">
-            <input type="radio" name="resStatus" id="statusConfirmed" value="confirmed" checked> 確定済み予約
-          </label>
-          <label style="font-size:14px; display:flex; align-items:center; gap:4px;">
-            <input type="radio" name="resStatus" id="statusPending" value="pending"> 未予約（枠を確保したい）
-          </label>
-        </div>
-      </div>
-      <div class="full-width autodial-box" id="autoDialSection" style="display:none;">
-        <div class="checkbox-row" id="competitionRow" style="display:none;">
-          <input type="checkbox" id="autoDialCompetition">
-          <label for="autoDialCompetition">競技（コンペ）ラウンド（御殿場コースは1ヶ月前開始になります）</label>
-        </div>
-        <label for="autoDialOpenDateTime">予約開始日時（固定ルールから自動計算。実際と異なる場合のみ修正してください）</label>
-        <input type="datetime-local" id="autoDialOpenDateTime">
-        <div class="checkbox-row" style="margin-top:8px;">
-          <input type="checkbox" id="autoDialEnabled">
-          <label for="autoDialEnabled">自動で予約電話を発信する</label>
-        </div>
-        <div class="hint" id="autoDialJobStatus"></div>
-      </div>
     </div>
     <div class="form-actions">
       <button class="btn-primary" id="saveBtn">追加する</button>
@@ -394,7 +292,6 @@
       <div class="tabs">
         <button class="tab-btn active" data-filter="upcoming">今後の予約</button>
         <button class="tab-btn" data-filter="all">すべて</button>
-        <button class="tab-btn" data-filter="pending">未予約</button>
         <button class="tab-btn" data-filter="changeRequested">変更依頼あり</button>
       </div>
       <select id="courseFilter">
@@ -412,216 +309,6 @@ let editingId = null;
 let currentFilter = "upcoming";
 let currentCourseFilter = "";
 
-// ---- 自動予約電話（Twilio自動発信）関連 ----
-// 対象コース: この2つの場合のみ「未予約」ステータスで自動発信チェックが使える
-const TARGET_COURSES = ["チェックメイトCC", "太平洋クラブ"];
-// 競技（コンペ）による例外ルールがあるコース
-const COMPETITION_ELIGIBLE_COURSES = ["太平洋クラブ"];
-const API_BASE_KEY = "golf_call_api_base_url";
-const COURSE_PHONE_KEY = "golf_course_phone_numbers_v1";
-
-// 予約開始ルール（固定値。ユーザーからの確認済みルールのためUIでは編集不可にしている）
-// - チェックメイトCC: 平日・祝日は2ヶ月前の同日10:00 / 土日は1ヶ月前の同日10:00
-// - 太平洋クラブ御殿場: 通常は3ヶ月前の同日10:00 / 競技(コンペ)は1ヶ月前の同日10:00
-const COURSE_RULES = {
-  "チェックメイトCC": { weekdayMonthsBefore: 2, weekendMonthsBefore: 1, timeOfDay: "10:00" },
-  "太平洋クラブ": { weekdayMonthsBefore: 3, weekendMonthsBefore: 3, competitionMonthsBefore: 1, timeOfDay: "10:00" }
-};
-
-// エントリーデスクの電話番号（初期値）。localStorageに未保存の場合のフォールバックとして使う。
-const DEFAULT_COURSE_PHONES = {
-  "チェックメイトCC": "+81465837311",
-  "太平洋クラブ": "+81550896226"
-};
-
-function loadCoursePhones() {
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(COURSE_PHONE_KEY)) || {};
-  } catch (e) {
-    saved = {};
-  }
-  return {
-    "チェックメイトCC": saved["チェックメイトCC"] || DEFAULT_COURSE_PHONES["チェックメイトCC"],
-    "太平洋クラブ": saved["太平洋クラブ"] || DEFAULT_COURSE_PHONES["太平洋クラブ"]
-  };
-}
-
-function saveCoursePhones(phones) {
-  localStorage.setItem(COURSE_PHONE_KEY, JSON.stringify(phones));
-}
-
-function loadApiBaseUrl() {
-  return (localStorage.getItem(API_BASE_KEY) || "").trim().replace(/\/$/, "");
-}
-
-function saveApiBaseUrl(url) {
-  localStorage.setItem(API_BASE_KEY, (url || "").trim().replace(/\/$/, ""));
-}
-
-function initCallSettingsUI() {
-  const phones = loadCoursePhones();
-  document.getElementById("apiBaseUrlInput").value = loadApiBaseUrl();
-  document.getElementById("cm_phone").value = phones["チェックメイトCC"] || "";
-  document.getElementById("tc_phone").value = phones["太平洋クラブ"] || "";
-}
-
-document.getElementById("saveCallSettingsBtn").addEventListener("click", () => {
-  saveApiBaseUrl(document.getElementById("apiBaseUrlInput").value);
-  saveCoursePhones({
-    "チェックメイトCC": document.getElementById("cm_phone").value.trim(),
-    "太平洋クラブ": document.getElementById("tc_phone").value.trim()
-  });
-  alert("自動発信設定を保存しました。");
-});
-
-// プレー日・競技フラグと、コースの固定ルールから「予約開始日時」を自動計算する
-// (datetime-local用のローカル文字列を返す)
-function calcOpenDateTimeLocal(course, playDate, isCompetition) {
-  const rule = COURSE_RULES[course];
-  if (!rule || !playDate) return "";
-  const [y, m, d] = playDate.split("-").map(Number);
-  const base = new Date(y, m - 1, d);
-  const dow = base.getDay(); // 0:日 ... 6:土
-  const isWeekend = dow === 0 || dow === 6;
-
-  let monthsBefore;
-  if (isCompetition && rule.competitionMonthsBefore != null) {
-    monthsBefore = rule.competitionMonthsBefore;
-  } else {
-    monthsBefore = isWeekend ? rule.weekendMonthsBefore : rule.weekdayMonthsBefore;
-  }
-
-  base.setMonth(base.getMonth() - (Number(monthsBefore) || 0));
-  const yyyy = base.getFullYear();
-  const MM = String(base.getMonth() + 1).padStart(2, "0");
-  const dd = String(base.getDate()).padStart(2, "0");
-  const time = rule.timeOfDay || "10:00";
-  return `${yyyy}-${MM}-${dd}T${time}`;
-}
-
-// datetime-local の値 ("YYYY-MM-DDTHH:mm") を、日本時間固定のISO文字列に変換してバックエンドに送る
-function localDateTimeToJstIso(localStr) {
-  if (!localStr) return null;
-  return `${localStr}:00+09:00`;
-}
-
-function jstIsoToLocalInputValue(iso) {
-  if (!iso) return "";
-  return iso.replace("+09:00", "").slice(0, 16);
-}
-
-function updateAutoDialVisibility() {
-  const course = getCourseValue();
-  const statusEl = document.querySelector('input[name="resStatus"]:checked');
-  const status = statusEl ? statusEl.value : "confirmed";
-  const section = document.getElementById("autoDialSection");
-  const competitionRow = document.getElementById("competitionRow");
-  if (status === "pending" && TARGET_COURSES.includes(course)) {
-    section.style.display = "block";
-    competitionRow.style.display = COMPETITION_ELIGIBLE_COURSES.includes(course) ? "flex" : "none";
-    if (!editingId) recomputeAutoDialDateTime();
-  } else {
-    section.style.display = "none";
-  }
-}
-
-function recomputeAutoDialDateTime() {
-  const course = getCourseValue();
-  const playDate = document.getElementById("playDate").value;
-  const isCompetition = document.getElementById("autoDialCompetition").checked;
-  const dt = calcOpenDateTimeLocal(course, playDate, isCompetition);
-  if (dt) document.getElementById("autoDialOpenDateTime").value = dt;
-}
-
-document.querySelectorAll('input[name="resStatus"]').forEach(r => {
-  r.addEventListener("change", updateAutoDialVisibility);
-});
-document.getElementById("autoDialCompetition").addEventListener("change", recomputeAutoDialDateTime);
-
-// バックエンドAPIに発信ジョブを登録/解除する。
-// 戻り値は更新済みの予約オブジェクト (callJobId / callJobStatus / autoDialEnabled を反映)。
-async function syncAutoDialJob(reservation) {
-  const apiBase = loadApiBaseUrl();
-
-  if (reservation.autoDialEnabled) {
-    if (reservation.callJobId) {
-      // 既に登録済み。開始日時などを変えたい場合は一旦チェックを外して解除し、再度チェックしてください。
-      return reservation;
-    }
-    if (!apiBase) {
-      alert("自動発信を有効にするには、上部の「自動予約電話 設定」でバックエンドAPIのURLを設定してください。");
-      return Object.assign({}, reservation, { autoDialEnabled: false });
-    }
-    const phones = loadCoursePhones();
-    const phone = phones[reservation.course];
-    if (!phone) {
-      alert(`${reservation.course}の電話番号が未設定です。「自動予約電話 設定」で入力してください。`);
-      return Object.assign({}, reservation, { autoDialEnabled: false });
-    }
-    if (!reservation.autoDialOpenDateTime) {
-      alert("予約開始日時が入力されていません。");
-      return Object.assign({}, reservation, { autoDialEnabled: false });
-    }
-    try {
-      const res = await fetch(`${apiBase}/jobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          course: reservation.course,
-          playDate: reservation.playDate,
-          openDateTimeIso: reservation.autoDialOpenDateTime,
-          coursePhoneNumber: phone,
-          reservationId: reservation.id
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert("自動発信の登録に失敗しました: " + (data.error || res.status));
-        return Object.assign({}, reservation, { autoDialEnabled: false });
-      }
-      return Object.assign({}, reservation, { callJobId: data.jobId, callJobStatus: data.status });
-    } catch (e) {
-      alert("自動発信バックエンドへの接続に失敗しました。APIのURLを確認してください。");
-      return Object.assign({}, reservation, { autoDialEnabled: false });
-    }
-  } else if (reservation.callJobId) {
-    // チェックを外した場合は登録済みジョブをキャンセルする
-    try {
-      if (apiBase) {
-        await fetch(`${apiBase}/jobs/${reservation.callJobId}`, { method: "DELETE" });
-      }
-    } catch (e) {
-      // 解除に失敗しても致命的ではないため無視する
-    }
-    return Object.assign({}, reservation, { callJobId: null, callJobStatus: null });
-  }
-
-  return reservation;
-}
-
-async function refreshJobStatus(id) {
-  const apiBase = loadApiBaseUrl();
-  let list = loadReservations();
-  const r = list.find(x => x.id === id);
-  if (!r || !r.callJobId) return;
-  if (!apiBase) {
-    alert("バックエンドAPIのURLが設定されていません。");
-    return;
-  }
-  try {
-    const res = await fetch(`${apiBase}/jobs/${r.callJobId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    list = list.map(x => x.id === id ? Object.assign({}, x, { callJobStatus: data.status }) : x);
-    saveReservations(list);
-    render();
-  } catch (e) {
-    // ネットワークエラー等は無視 (ユーザーが再度「状況更新」を押せばよい)
-  }
-}
-// ---- ここまで 自動予約電話 関連 ----
-
 // ---- ゴルフ場（コース）選択 ----
 const courseSelect = document.getElementById("courseSelect");
 const courseCustomWrap = document.getElementById("courseCustomWrap");
@@ -629,10 +316,7 @@ const courseCustomInput = document.getElementById("courseCustom");
 
 courseSelect.addEventListener("change", () => {
   courseCustomWrap.style.display = courseSelect.value === "__custom__" ? "block" : "none";
-  updateAutoDialVisibility();
 });
-
-document.getElementById("playDate").addEventListener("change", updateAutoDialVisibility);
 
 function getCourseValue() {
   if (courseSelect.value === "__custom__") {
@@ -869,8 +553,7 @@ async function syncFromCalendar() {
           course: parsed.course,
           players: parsed.players,
           timeChangeRequested: parsed.timeChangeRequested,
-          timeChangeNote: parsed.timeChangeNote,
-          status: "confirmed"
+          timeChangeNote: parsed.timeChangeNote
         });
       }
     });
@@ -942,14 +625,6 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   ];
   const timeChangeRequested = timeChangeCheckbox.checked;
   const timeChangeNote = document.getElementById("timeChangeNote").value.trim();
-  const statusEl = document.querySelector('input[name="resStatus"]:checked');
-  const status = statusEl ? statusEl.value : "confirmed";
-  const autoDialWanted = status === "pending" && TARGET_COURSES.includes(course) && document.getElementById("autoDialEnabled").checked;
-  const autoDialCompetition = TARGET_COURSES.includes(course) && document.getElementById("autoDialCompetition").checked;
-  const autoDialOpenLocal = document.getElementById("autoDialOpenDateTime").value;
-  const autoDialOpenDateTime = (status === "pending" && TARGET_COURSES.includes(course))
-    ? localDateTimeToJstIso(autoDialOpenLocal)
-    : null;
 
   if (!course) {
     alert("ゴルフ場を選択（または入力）してください。");
@@ -969,35 +644,22 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   let targetReservation;
 
   if (editingId) {
-    const existing = list.find(r => r.id === editingId) || {};
-    targetReservation = Object.assign({}, existing, {
-      course, playDate, startTime, players, timeChangeRequested, timeChangeNote,
-      status, autoDialEnabled: autoDialWanted, autoDialOpenDateTime, autoDialCompetition
+    list = list.map(r => {
+      if (r.id !== editingId) return r;
+      targetReservation = { ...r, course, playDate, startTime, players, timeChangeRequested, timeChangeNote };
+      return targetReservation;
     });
   } else {
     targetReservation = {
       id: uid(),
-      course, playDate, startTime, players, timeChangeRequested, timeChangeNote,
-      status, autoDialEnabled: autoDialWanted, autoDialOpenDateTime, autoDialCompetition,
-      callJobId: null, callJobStatus: null, gcalEventId: null
+      course, playDate, startTime, players, timeChangeRequested, timeChangeNote, gcalEventId: null
     };
-  }
-
-  // 自動発信の登録/解除をバックエンドと同期する
-  targetReservation = await syncAutoDialJob(targetReservation);
-
-  if (editingId) {
-    list = list.map(r => r.id === editingId ? targetReservation : r);
-  } else {
     list.push(targetReservation);
   }
 
-  // 「未予約」の枠は正式な予約ではないため、Googleカレンダーへは反映しない
-  if (targetReservation.status !== "pending") {
-    const gcalEventId = await pushToCalendar(targetReservation);
-    if (gcalEventId) {
-      list = list.map(r => r.id === targetReservation.id ? Object.assign({}, r, { gcalEventId }) : r);
-    }
+  const gcalEventId = await pushToCalendar(targetReservation);
+  if (gcalEventId) {
+    list = list.map(r => r.id === targetReservation.id ? { ...r, gcalEventId } : r);
   }
 
   saveReservations(list);
@@ -1022,13 +684,6 @@ function resetForm() {
   timeChangeCheckbox.checked = false;
   document.getElementById("timeChangeNote").value = "";
   timeChangeNoteWrap.style.display = "none";
-  document.getElementById("statusConfirmed").checked = true;
-  document.getElementById("autoDialEnabled").checked = false;
-  document.getElementById("autoDialCompetition").checked = false;
-  document.getElementById("autoDialOpenDateTime").value = "";
-  document.getElementById("autoDialJobStatus").textContent = "";
-  document.getElementById("autoDialSection").style.display = "none";
-  document.getElementById("competitionRow").style.display = "none";
   document.getElementById("form-title").textContent = "予約を追加";
   document.getElementById("saveBtn").textContent = "追加する";
   document.getElementById("cancelBtn").style.display = "none";
@@ -1050,25 +705,6 @@ function startEdit(id) {
   timeChangeCheckbox.checked = !!r.timeChangeRequested;
   document.getElementById("timeChangeNote").value = r.timeChangeNote || "";
   timeChangeNoteWrap.style.display = r.timeChangeRequested ? "block" : "none";
-
-  const status = r.status === "pending" ? "pending" : "confirmed";
-  document.getElementById("statusConfirmed").checked = status === "confirmed";
-  document.getElementById("statusPending").checked = status === "pending";
-  document.getElementById("autoDialEnabled").checked = !!r.autoDialEnabled;
-  document.getElementById("autoDialCompetition").checked = !!r.autoDialCompetition;
-  document.getElementById("autoDialOpenDateTime").value = jstIsoToLocalInputValue(r.autoDialOpenDateTime) || "";
-  const jobLabel = {
-    scheduled: "発信待機中",
-    dialing: "発信中",
-    connected: "接続成功",
-    failed: "失敗",
-    cancelled: "取消済み"
-  }[r.callJobStatus];
-  document.getElementById("autoDialJobStatus").textContent = r.callJobId
-    ? `現在の状況: ${jobLabel || r.callJobStatus || "登録済み"}（保存すると変更されません。解除するにはチェックを外して保存してください）`
-    : "";
-  updateAutoDialVisibility();
-
   document.getElementById("form-title").textContent = "予約を編集";
   document.getElementById("saveBtn").textContent = "更新する";
   document.getElementById("cancelBtn").style.display = "inline-block";
@@ -1081,16 +717,6 @@ async function deleteReservation(id) {
   const target = list.find(x => x.id === id);
   if (target && target.gcalEventId) {
     await deleteFromCalendar(target.gcalEventId);
-  }
-  if (target && target.callJobId) {
-    const apiBase = loadApiBaseUrl();
-    if (apiBase) {
-      try {
-        await fetch(`${apiBase}/jobs/${target.callJobId}`, { method: "DELETE" });
-      } catch (e) {
-        // 失敗しても削除自体は続行する
-      }
-    }
   }
   list = list.filter(x => x.id !== id);
   saveReservations(list);
@@ -1117,8 +743,6 @@ function render() {
     list = list.filter(r => r.playDate >= today);
   } else if (currentFilter === "changeRequested") {
     list = list.filter(r => r.timeChangeRequested);
-  } else if (currentFilter === "pending") {
-    list = list.filter(r => r.status === "pending");
   }
 
   if (currentCourseFilter) {
@@ -1134,14 +758,6 @@ function render() {
     return;
   }
   emptyMsg.style.display = "none";
-
-  const jobLabelMap = {
-    scheduled: "発信待機中",
-    dialing: "発信中",
-    connected: "接続成功",
-    failed: "失敗",
-    cancelled: "取消済み"
-  };
 
   list.forEach(r => {
     const item = document.createElement("div");
@@ -1159,12 +775,6 @@ function render() {
       dateLine.appendChild(courseTag);
     }
     dateLine.appendChild(document.createTextNode(`${formatDateLabel(r.playDate)} ${r.startTime}〜`));
-    if (r.status === "pending") {
-      const pill = document.createElement("span");
-      pill.className = "status-pill pending";
-      pill.textContent = "未予約";
-      dateLine.appendChild(pill);
-    }
     if (r.timeChangeRequested) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -1176,12 +786,6 @@ function render() {
       tag.className = "sync-tag";
       tag.textContent = "カレンダー同期済み";
       dateLine.appendChild(tag);
-    }
-    if (r.callJobId) {
-      const jobBadge = document.createElement("span");
-      jobBadge.className = "calljob-badge " + (r.callJobStatus || "scheduled");
-      jobBadge.textContent = "自動発信: " + (jobLabelMap[r.callJobStatus] || r.callJobStatus || "登録済み");
-      dateLine.appendChild(jobBadge);
     }
 
     const subLine = document.createElement("div");
@@ -1198,14 +802,6 @@ function render() {
 
     const actions = document.createElement("div");
     actions.className = "res-actions";
-
-    if (r.callJobId) {
-      const refreshBtn = document.createElement("button");
-      refreshBtn.className = "icon-btn";
-      refreshBtn.textContent = "状況更新";
-      refreshBtn.addEventListener("click", () => refreshJobStatus(r.id));
-      actions.appendChild(refreshBtn);
-    }
 
     const editBtn = document.createElement("button");
     editBtn.className = "icon-btn";
@@ -1227,7 +823,6 @@ function render() {
 }
 
 document.getElementById("player1").value = DEFAULT_PLAYER1;
-initCallSettingsUI();
 updateGcalStatusUI();
 initGoogleAuth();
 render();
