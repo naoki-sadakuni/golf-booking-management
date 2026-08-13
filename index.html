@@ -37,6 +37,11 @@
     background: var(--green);
     color: #fff;
     padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
   }
   header h1 {
     margin: 0;
@@ -141,6 +146,47 @@
     flex-wrap: wrap;
     gap: 6px;
   }
+  .view-mode-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .view-mode-btn {
+    background: #fff;
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--border);
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  .view-mode-btn:last-child { border-right: none; }
+  .view-mode-btn.active { background: var(--green); color: #fff; }
+  .res-filter-wrap { position: relative; flex-shrink: 0; }
+  .res-filter-badge {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-left: 6px;
+  }
+  .res-filter-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 14px 16px;
+    width: 260px;
+    z-index: 950;
+    text-align: left;
+  }
   .filter-chip {
     background: #eceeec;
     color: var(--muted);
@@ -242,19 +288,58 @@
     padding: 30px 0;
     font-size: 13px;
   }
-  .gcal-row {
+  .gcal-badge-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .gcal-badge {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    font-family: inherit;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
   }
-  .gcal-status {
+  .gcal-badge:hover { background: rgba(255, 255, 255, 0.28); }
+  .gcal-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d8dad8;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .gcal-dot.connected { background: #8fd9a8; }
+  .gcal-dot.error { background: #f0a3a3; }
+  .gcal-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 14px 16px;
+    width: 240px;
+    z-index: 950;
+    text-align: left;
+  }
+  .gcal-popover-status {
     font-size: 13px;
     color: var(--muted);
+    margin-bottom: 10px;
   }
-  .gcal-status.connected { color: var(--green-dark); font-weight: 600; }
-  .gcal-actions { display: flex; gap: 8px; }
+  .gcal-popover-status.connected { color: var(--green-dark); font-weight: 600; }
+  .gcal-popover-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
   .sync-tag {
     display: inline-block;
     font-size: 11px;
@@ -431,20 +516,22 @@
 
 <header>
   <h1>ゴルフ予約管理</h1>
-</header>
-
-<main>
-  <div class="card">
-    <h2>Googleカレンダー連携</h2>
-    <div class="gcal-row">
-      <div class="gcal-status" id="gcalStatus">未接続です</div>
-      <div class="gcal-actions">
+  <div class="gcal-badge-wrap">
+    <button type="button" class="gcal-badge" id="gcalBadge">
+      <span class="gcal-dot" id="gcalDot"></span>
+      <span id="gcalBadgeLabel">未接続</span>
+    </button>
+    <div class="gcal-popover" id="gcalPopover" style="display:none;">
+      <div class="gcal-popover-status" id="gcalPopoverStatus">未接続です</div>
+      <div class="gcal-popover-actions">
         <button class="btn-secondary" id="gcalConnectBtn">Googleカレンダーに接続</button>
         <button class="btn-secondary" id="gcalSyncBtn" style="display:none;">Googleカレンダー同期</button>
       </div>
     </div>
   </div>
+</header>
 
+<main>
   <div class="card no-course-selected" id="reservationFormCard">
     <h2 id="form-title">予約を追加</h2>
     <div class="form-grid">
@@ -784,20 +871,28 @@
   <div class="card">
     <h2>予約一覧</h2>
     <div class="filter-row">
-      <div class="course-filter-row" id="courseFilterRow">
-        <button type="button" class="filter-chip active" data-course="">すべて</button>
-        <button type="button" class="filter-chip" data-course="横浜CC">YCC</button>
-        <button type="button" class="filter-chip" data-course="チェックメイトCC">CMC</button>
-        <button type="button" class="filter-chip" data-course="太平洋クラブ">TYC</button>
-        <button type="button" class="filter-chip" data-course="__other__">その他</button>
+      <div class="view-mode-group" id="viewModeGroup">
+        <button type="button" class="view-mode-btn active" data-mode="upcoming">今後</button>
+        <button type="button" class="view-mode-btn" data-mode="past">過去</button>
+        <button type="button" class="view-mode-btn" data-mode="calendar">月次</button>
       </div>
-      <button class="btn-secondary" id="pastToggleBtn">過去の予約を表示</button>
-      <button class="btn-secondary" id="monthCalToggleBtn">月次カレンダー表示</button>
-    </div>
-    <div class="full-width" style="margin-bottom:14px;">
-      <label for="companionFilterInput">同伴者で絞り込み</label>
-      <input type="text" id="companionFilterInput" list="companionFilterList" placeholder="同伴者名を入力または選択">
-      <datalist id="companionFilterList"></datalist>
+      <div class="res-filter-wrap">
+        <button type="button" class="btn-secondary" id="resFilterBtn">絞り込み<span class="res-filter-badge" id="resFilterBadge" style="display:none;"></span></button>
+        <div class="res-filter-popover" id="resFilterPopover" style="display:none;">
+          <div class="course-filter-row" id="courseFilterRow">
+            <button type="button" class="filter-chip active" data-course="">すべて</button>
+            <button type="button" class="filter-chip" data-course="横浜CC">YCC</button>
+            <button type="button" class="filter-chip" data-course="チェックメイトCC">CMC</button>
+            <button type="button" class="filter-chip" data-course="太平洋クラブ">TYC</button>
+            <button type="button" class="filter-chip" data-course="__other__">その他</button>
+          </div>
+          <div style="margin-top:10px;">
+            <label for="companionFilterInput">同伴者で絞り込み</label>
+            <input type="text" id="companionFilterInput" list="companionFilterList" placeholder="同伴者名を入力または選択">
+            <datalist id="companionFilterList"></datalist>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="res-list" id="resList"></div>
     <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
@@ -1533,22 +1628,28 @@ let gcalTokenClient = null;
 let lastSyncFailed = false;
 
 function updateGcalStatusUI() {
-  const statusEl = document.getElementById("gcalStatus");
+  const badgeLabel = document.getElementById("gcalBadgeLabel");
+  const dot = document.getElementById("gcalDot");
+  const popoverStatus = document.getElementById("gcalPopoverStatus");
   const connectBtn = document.getElementById("gcalConnectBtn");
   const syncBtn = document.getElementById("gcalSyncBtn");
   const saveBtn = document.getElementById("saveBtn");
   const connectRequiredNote = document.getElementById("connectRequiredNote");
   if (gcalToken) {
-    statusEl.textContent = "Googleカレンダーに接続済みです";
-    statusEl.classList.add("connected");
+    badgeLabel.textContent = lastSyncFailed ? "同期エラー" : "連携済み";
+    dot.className = "gcal-dot" + (lastSyncFailed ? " error" : " connected");
+    popoverStatus.textContent = "Googleカレンダーに接続済みです";
+    popoverStatus.classList.add("connected");
     connectBtn.textContent = "再接続";
     connectBtn.style.display = lastSyncFailed ? "inline-block" : "none";
     syncBtn.style.display = "inline-block";
     saveBtn.disabled = false;
     connectRequiredNote.style.display = "none";
   } else {
-    statusEl.textContent = "未接続です（予約の自動反映にはGoogleカレンダーへの接続が必要です）";
-    statusEl.classList.remove("connected");
+    badgeLabel.textContent = "未接続";
+    dot.className = "gcal-dot";
+    popoverStatus.textContent = "未接続です（予約の自動反映にはGoogleカレンダーへの接続が必要です）";
+    popoverStatus.classList.remove("connected");
     connectBtn.textContent = "Googleカレンダーに接続";
     connectBtn.style.display = "inline-block";
     syncBtn.style.display = "none";
@@ -1556,6 +1657,20 @@ function updateGcalStatusUI() {
     connectRequiredNote.style.display = "block";
   }
 }
+
+// ---- ヘッダーのステータスバッジ・ポップオーバー開閉 ----
+// プレー日カレンダーのポップオーバーと同様の開閉パターン（自身の内側クリックは伝播を止め、
+// それ以外の場所をクリックしたら閉じる）を使う。
+const gcalBadge = document.getElementById("gcalBadge");
+const gcalPopover = document.getElementById("gcalPopover");
+gcalBadge.addEventListener("click", (e) => {
+  e.stopPropagation();
+  gcalPopover.style.display = gcalPopover.style.display === "block" ? "none" : "block";
+});
+gcalPopover.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => {
+  gcalPopover.style.display = "none";
+});
 
 const GCAL_EVER_CONNECTED_KEY = "gcal_ever_connected";
 let autoConnectAttempted = false;
@@ -2185,6 +2300,7 @@ async function syncFromCalendar() {
 }
 
 document.getElementById("gcalConnectBtn").addEventListener("click", () => {
+  gcalPopover.style.display = "none";
   if (!gcalTokenClient) {
     alert("Google認証の準備中です。少し待ってからもう一度お試しください。");
     return;
@@ -2192,7 +2308,10 @@ document.getElementById("gcalConnectBtn").addEventListener("click", () => {
   gcalTokenClient.requestAccessToken({ prompt: gcalToken ? "" : "consent", login_hint: GOOGLE_LOGIN_HINT });
 });
 
-document.getElementById("gcalSyncBtn").addEventListener("click", syncFromCalendar);
+document.getElementById("gcalSyncBtn").addEventListener("click", () => {
+  gcalPopover.style.display = "none";
+  syncFromCalendar();
+});
 // ---- ここまで Google カレンダー連携 ----
 
 function loadReservations() {
@@ -2543,12 +2662,6 @@ async function deleteReservation(id) {
   render();
 }
 
-document.getElementById("pastToggleBtn").addEventListener("click", () => {
-  showPast = !showPast;
-  document.getElementById("pastToggleBtn").textContent = showPast ? "今後の予約に戻す" : "過去の予約を表示";
-  render();
-});
-
 // ---- 予約一覧の月次カレンダー表示（普段は非表示） ----
 let monthCalendarVisible = false;
 const today0 = new Date();
@@ -2558,7 +2671,6 @@ let resCalMonth = today0.getMonth(); // 0-11
 const monthCalendarView = document.getElementById("monthCalendarView");
 const resCalGrid = document.getElementById("resCalGrid");
 const resCalMonthLabel = document.getElementById("resCalMonthLabel");
-const monthCalToggleBtn = document.getElementById("monthCalToggleBtn");
 const resListEl = document.getElementById("resList");
 
 function courseAbbrev(course) {
@@ -2648,17 +2760,59 @@ function toggleMonthCalendarView(forceShow) {
     monthCalendarView.style.display = "block";
     resListEl.style.display = "none";
     document.getElementById("emptyMsg").style.display = "none";
-    monthCalToggleBtn.textContent = "一覧表示に戻す";
+    updateViewModeUI();
     renderMonthCalendar();
   } else {
     monthCalendarView.style.display = "none";
     resListEl.style.display = "flex";
-    monthCalToggleBtn.textContent = "月次カレンダー表示";
+    updateViewModeUI();
     render();
   }
 }
 
-monthCalToggleBtn.addEventListener("click", () => toggleMonthCalendarView());
+// ---- 表示切替（今後／過去／月次カレンダー） ----
+// 月次カレンダー表示中は一覧（今後・過去）が隠れるため、実質どれか1つだけが
+// アクティブな状態になる。そのため3択のセグメントコントロールとして扱う。
+function setViewMode(mode) {
+  if (mode === "calendar") {
+    toggleMonthCalendarView(true);
+  } else {
+    if (monthCalendarVisible) {
+      toggleMonthCalendarView(false);
+    }
+    showPast = mode === "past";
+    render();
+  }
+  updateViewModeUI();
+}
+
+function updateViewModeUI() {
+  const mode = monthCalendarVisible ? "calendar" : (showPast ? "past" : "upcoming");
+  document.querySelectorAll(".view-mode-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+}
+
+document.querySelectorAll(".view-mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => setViewMode(btn.dataset.mode));
+});
+
+// ---- 絞り込み（コース・同伴者）のポップオーバー開閉 ----
+const resFilterBtn = document.getElementById("resFilterBtn");
+const resFilterPopover = document.getElementById("resFilterPopover");
+resFilterBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  resFilterPopover.style.display = resFilterPopover.style.display === "block" ? "none" : "block";
+});
+resFilterPopover.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => {
+  resFilterPopover.style.display = "none";
+});
+
+function updateResFilterBadge() {
+  const active = !!(currentCourseFilter || currentCompanionFilter);
+  document.getElementById("resFilterBadge").style.display = active ? "inline-block" : "none";
+}
 
 document.getElementById("resCalPrevMonth").addEventListener("click", () => {
   resCalMonth--;
@@ -2908,6 +3062,7 @@ function render() {
   }
 
   updateCompanionFilterOptions();
+  updateResFilterBadge();
 
   const container = document.getElementById("resList");
   const emptyMsg = document.getElementById("emptyMsg");
@@ -3061,6 +3216,7 @@ updateCourseGateUI();
 updateGoraPasteUI();
 resetStartTimeToDefault();
 updateGcalStatusUI();
+updateViewModeUI();
 initGoogleAuth();
 render();
 </script>
