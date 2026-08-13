@@ -273,6 +273,14 @@
     color: #e65100;
     background: #ffe0b2;
   }
+  .sync-tag.sync-tag-invite {
+    color: #e0a300;
+    background: #f7e8bf;
+  }
+  .sync-tag.sync-tag-combo {
+    color: #ffe0b2;
+    background: #e65100;
+  }
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -786,6 +794,11 @@
       <button class="btn-secondary" id="pastToggleBtn">過去の予約を表示</button>
       <button class="btn-secondary" id="monthCalToggleBtn">月次カレンダー表示</button>
     </div>
+    <div class="full-width" style="margin-bottom:14px;">
+      <label for="companionFilterInput">同伴者で絞り込み</label>
+      <input type="text" id="companionFilterInput" list="companionFilterList" placeholder="同伴者名を入力または選択">
+      <datalist id="companionFilterList"></datalist>
+    </div>
     <div class="res-list" id="resList"></div>
     <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
     <div class="month-calendar" id="monthCalendarView" style="display:none;">
@@ -816,6 +829,7 @@
 const STORAGE_KEY = "checkmatecc_reservations";
 let editingId = null;
 let currentCourseFilter = "";
+let currentCompanionFilter = "";
 let showPast = false;
 
 // ---- ゴルフ場（コース）選択 ----
@@ -2559,8 +2573,14 @@ function renderMonthCalendar() {
   resCalGrid.innerHTML = "";
 
   const list = loadReservations().filter(r => {
-    if (currentCourseFilter === "__other__") return r.course && !KNOWN_COURSES.includes(r.course);
-    if (currentCourseFilter) return r.course === currentCourseFilter;
+    if (currentCourseFilter === "__other__") {
+      if (!r.course || KNOWN_COURSES.includes(r.course)) return false;
+    } else if (currentCourseFilter && r.course !== currentCourseFilter) {
+      return false;
+    }
+    if (currentCompanionFilter && !(r.players || []).some(p => p && p.includes(currentCompanionFilter))) {
+      return false;
+    }
     return true;
   });
   const byDate = {};
@@ -2653,6 +2673,34 @@ document.getElementById("resCalNextMonth").addEventListener("click", () => {
 });
 
 const KNOWN_COURSES = ["横浜CC", "チェックメイトCC", "太平洋クラブ"];
+
+// ---- 同伴者で絞り込み（プルダウン兼入力候補） ----
+// 全予約に登場した同伴者名を重複なく集めてdatalistに反映し、入力欄への部分一致でも
+// 選択でも絞り込めるようにする。
+const companionFilterInput = document.getElementById("companionFilterInput");
+const companionFilterList = document.getElementById("companionFilterList");
+
+function getAllCompanionNames() {
+  const list = loadReservations();
+  const names = new Set();
+  list.forEach(r => {
+    (r.players || []).forEach(name => {
+      const n = (name || "").trim();
+      if (n) names.add(n);
+    });
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+}
+
+function updateCompanionFilterOptions() {
+  const names = getAllCompanionNames();
+  companionFilterList.innerHTML = names.map(n => `<option value="${n}"></option>`).join("");
+}
+
+companionFilterInput.addEventListener("input", () => {
+  currentCompanionFilter = companionFilterInput.value.trim();
+  render();
+});
 
 function getFrequentPlayerNames(limit, courseFilter) {
   const list = loadReservations();
@@ -2855,6 +2903,12 @@ function render() {
     list = list.filter(r => r.course === currentCourseFilter);
   }
 
+  if (currentCompanionFilter) {
+    list = list.filter(r => (r.players || []).some(p => p && p.includes(currentCompanionFilter)));
+  }
+
+  updateCompanionFilterOptions();
+
   const container = document.getElementById("resList");
   const emptyMsg = document.getElementById("emptyMsg");
   container.innerHTML = "";
@@ -2916,7 +2970,7 @@ function render() {
     }
     if (r.comboSlot) {
       const comboBadge = document.createElement("span");
-      comboBadge.className = "sync-tag";
+      comboBadge.className = "sync-tag sync-tag-combo";
       comboBadge.textContent = "組み合わせ枠";
       dateLine.appendChild(comboBadge);
     }
@@ -2928,7 +2982,7 @@ function render() {
     }
     if (r.notOwnSlot) {
       const inviteBadge = document.createElement("span");
-      inviteBadge.className = "sync-tag";
+      inviteBadge.className = "sync-tag sync-tag-invite";
       inviteBadge.textContent = "招待枠";
       dateLine.appendChild(inviteBadge);
     }
