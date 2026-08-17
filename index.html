@@ -234,6 +234,31 @@
     font-size: 13px;
   }
   .filter-chip.active { background: var(--green); color: #fff; }
+  .companion-filter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .companion-filter-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .companion-filter-item .count { color: var(--muted); font-size: 12px; }
+  .companion-filter-item.active { background: var(--green); color: #fff; }
+  .companion-filter-item.active .count { color: rgba(255, 255, 255, 0.85); }
   .full-width { grid-column: 1 / -1; }
   .players-col {
     grid-column: 1 / -1;
@@ -917,7 +942,7 @@
   <div class="card">
     <h2>予約一覧</h2>
     <div class="filter-row">
-      <div style="display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <div class="view-mode-group" id="viewModeGroup">
           <button type="button" class="view-mode-btn active" data-mode="upcoming">今後</button>
           <button type="button" class="view-mode-btn" data-mode="past">過去</button>
@@ -932,21 +957,35 @@
             <table class="year-stats-table" id="yearStatsTable"></table>
           </div>
         </div>
-      </div>
-      <div class="res-filter-wrap">
-        <button type="button" class="btn-secondary" id="resFilterBtn">絞り込み<span class="res-filter-badge" id="resFilterBadge" style="display:none;"></span></button>
-        <div class="res-filter-popover" id="resFilterPopover" style="display:none;">
-          <div class="course-filter-row" id="courseFilterRow">
-            <button type="button" class="filter-chip active" data-course="">すべて</button>
-            <button type="button" class="filter-chip" data-course="横浜CC">YCC</button>
-            <button type="button" class="filter-chip" data-course="チェックメイトCC">CMC</button>
-            <button type="button" class="filter-chip" data-course="太平洋クラブ">TYC</button>
-            <button type="button" class="filter-chip" data-course="__other__">その他</button>
+        <div class="year-stats-wrap" id="shareStatsWrap" style="display:none;">
+          <button type="button" class="year-stats-pill" id="shareStatsPill">
+            <span id="shareStatsPillLabel">共有</span>
+            <span style="font-size:10px;">▾</span>
+          </button>
+          <div class="year-stats-popover" id="shareStatsPopover" style="display:none;">
+            <div id="shareStatsPreview" style="font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:12px; white-space:pre-line;"></div>
+            <button type="button" class="btn-primary" id="shareStatsCopyBtn" style="width:100%;">コピーする</button>
+            <div id="shareStatsCopiedMsg" style="font-size:12px; color:var(--green-dark); margin-top:6px; display:none;">コピーしました</div>
           </div>
-          <div style="margin-top:10px;">
-            <label for="companionFilterInput">同伴者で絞り込み</label>
-            <input type="text" id="companionFilterInput" list="companionFilterList" placeholder="同伴者名を入力または選択">
-            <datalist id="companionFilterList"></datalist>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="res-filter-wrap">
+          <button type="button" class="btn-secondary" id="companionFilterBtn">同伴者<span class="res-filter-badge" id="companionFilterBadge" style="display:none;"></span></button>
+          <div class="res-filter-popover" id="companionFilterPopover" style="display:none;">
+            <div class="companion-filter-list" id="companionFilterChipList"></div>
+          </div>
+        </div>
+        <div class="res-filter-wrap">
+          <button type="button" class="btn-secondary" id="courseFilterBtn">ゴルフ場<span class="res-filter-badge" id="courseFilterBadge" style="display:none;"></span></button>
+          <div class="res-filter-popover" id="courseFilterPopover" style="display:none;">
+            <div class="course-filter-row" id="courseFilterRow">
+              <button type="button" class="filter-chip active" data-course="">すべて</button>
+              <button type="button" class="filter-chip" data-course="横浜CC">YCC</button>
+              <button type="button" class="filter-chip" data-course="チェックメイトCC">CMC</button>
+              <button type="button" class="filter-chip" data-course="太平洋クラブ">TYC</button>
+              <button type="button" class="filter-chip" data-course="__other__">その他</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2877,6 +2916,8 @@ function updateViewModeUI() {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
   updateYearStatsUI();
+  updateShareStatsUI();
+  renderCompanionFilterChips();
 }
 
 document.querySelectorAll(".view-mode-btn").forEach(btn => {
@@ -2933,21 +2974,116 @@ document.addEventListener("click", () => {
   yearStatsPopover.style.display = "none";
 });
 
-// ---- 絞り込み（コース・同伴者）のポップオーバー開閉 ----
-const resFilterBtn = document.getElementById("resFilterBtn");
-const resFilterPopover = document.getElementById("resFilterPopover");
-resFilterBtn.addEventListener("click", (e) => {
+// ---- 「今後」表示中に同伴者で絞り込んでいる場合のみ：今後の予定をテキストでコピー共有 ----
+function computeCompanionUpcomingList(name) {
+  const today = todayStr();
+  return loadReservations()
+    .filter(r => r.playDate && r.playDate >= today && (r.players || []).some(p => p && p.includes(name)))
+    .sort((a, b) => (a.playDate + (a.startTime || "")).localeCompare(b.playDate + (b.startTime || "")));
+}
+
+function buildCompanionShareText(name, list) {
+  const lines = [`${name}さんとの今後の予定（${list.length}件）`, ""];
+  list.forEach(r => {
+    let line = formatDateLabel(r.playDate);
+    if (r.startTime) line += ` ${r.startTime}〜`;
+    let courseLine = "";
+    if (r.course) {
+      if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
+        courseLine = `${r.course} ${r.courseName}`;
+      } else if (r.courseName) {
+        courseLine = `${r.course}（${r.courseName}）`;
+      } else {
+        courseLine = r.course;
+      }
+    }
+    if (courseLine) line += ` ${courseLine}`;
+    lines.push(line);
+  });
+  return lines.join("\n");
+}
+
+const shareStatsWrap = document.getElementById("shareStatsWrap");
+const shareStatsPill = document.getElementById("shareStatsPill");
+const shareStatsPillLabel = document.getElementById("shareStatsPillLabel");
+const shareStatsPopover = document.getElementById("shareStatsPopover");
+const shareStatsPreview = document.getElementById("shareStatsPreview");
+const shareStatsCopyBtn = document.getElementById("shareStatsCopyBtn");
+const shareStatsCopiedMsg = document.getElementById("shareStatsCopiedMsg");
+
+function updateShareStatsUI() {
+  const mode = monthCalendarVisible ? "calendar" : (showPast ? "past" : "upcoming");
+  const showShare = mode === "upcoming" && !!currentCompanionFilter;
+  shareStatsWrap.style.display = showShare ? "inline-flex" : "none";
+  if (!showShare) {
+    shareStatsPopover.style.display = "none";
+    return;
+  }
+  shareStatsPillLabel.textContent = `${currentCompanionFilter}さんへ共有`;
+  const list = computeCompanionUpcomingList(currentCompanionFilter);
+  shareStatsPreview.textContent = list.length
+    ? buildCompanionShareText(currentCompanionFilter, list)
+    : "今後の予定はありません。";
+  shareStatsCopiedMsg.style.display = "none";
+}
+
+shareStatsPill.addEventListener("click", (e) => {
   e.stopPropagation();
-  resFilterPopover.style.display = resFilterPopover.style.display === "block" ? "none" : "block";
+  shareStatsPopover.style.display = shareStatsPopover.style.display === "block" ? "none" : "block";
 });
-resFilterPopover.addEventListener("click", (e) => e.stopPropagation());
+shareStatsPopover.addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => {
-  resFilterPopover.style.display = "none";
+  shareStatsPopover.style.display = "none";
 });
 
-function updateResFilterBadge() {
-  const active = !!(currentCourseFilter || currentCompanionFilter);
-  document.getElementById("resFilterBadge").style.display = active ? "inline-block" : "none";
+shareStatsCopyBtn.addEventListener("click", async () => {
+  const text = shareStatsPreview.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    shareStatsCopiedMsg.style.display = "block";
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      shareStatsCopiedMsg.style.display = "block";
+    } catch (e2) {
+      // コピーに対応していない環境では静かに諦める
+    }
+    document.body.removeChild(ta);
+  }
+});
+
+// ---- 絞り込み（同伴者・コース）ボタンそれぞれのポップオーバー開閉 ----
+const companionFilterBtn = document.getElementById("companionFilterBtn");
+const companionFilterPopover = document.getElementById("companionFilterPopover");
+companionFilterBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  companionFilterPopover.style.display = companionFilterPopover.style.display === "block" ? "none" : "block";
+});
+companionFilterPopover.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => {
+  companionFilterPopover.style.display = "none";
+});
+
+const courseFilterBtn = document.getElementById("courseFilterBtn");
+const courseFilterPopover = document.getElementById("courseFilterPopover");
+courseFilterBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  courseFilterPopover.style.display = courseFilterPopover.style.display === "block" ? "none" : "block";
+});
+courseFilterPopover.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => {
+  courseFilterPopover.style.display = "none";
+});
+
+function updateFilterBadges() {
+  document.getElementById("companionFilterBadge").style.display = currentCompanionFilter ? "inline-block" : "none";
+  document.getElementById("courseFilterBadge").style.display = currentCourseFilter ? "inline-block" : "none";
 }
 
 document.getElementById("resCalPrevMonth").addEventListener("click", () => {
@@ -2964,33 +3100,63 @@ document.getElementById("resCalNextMonth").addEventListener("click", () => {
 
 const KNOWN_COURSES = ["横浜CC", "チェックメイトCC", "太平洋クラブ"];
 
-// ---- 同伴者で絞り込み（プルダウン兼入力候補） ----
-// 全予約に登場した同伴者名を重複なく集めてdatalistに反映し、入力欄への部分一致でも
-// 選択でも絞り込めるようにする。
-const companionFilterInput = document.getElementById("companionFilterInput");
-const companionFilterList = document.getElementById("companionFilterList");
-
-function getAllCompanionNames() {
-  const list = loadReservations();
-  const names = new Set();
+// ---- 同伴者で絞り込み（予定数が多い順の選択式リスト） ----
+// 「今後」「月次」表示中は今後（未来）の予約件数、「過去」表示中は過去の予約件数で
+// 集計・降順ソートする。表示中の内容（今後／過去）と実際に選べる同伴者の並び順が
+// 一致するようにするための仕様。
+function computeCompanionCounts() {
+  const today = todayStr();
+  const usePast = !monthCalendarVisible && showPast;
+  const list = loadReservations().filter(r => r.playDate && (usePast ? r.playDate < today : r.playDate >= today));
+  const counts = {};
   list.forEach(r => {
     (r.players || []).forEach(name => {
       const n = (name || "").trim();
-      if (n) names.add(n);
+      if (!n) return;
+      counts[n] = (counts[n] || 0) + 1;
     });
   });
-  return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+  return counts;
 }
 
-function updateCompanionFilterOptions() {
-  const names = getAllCompanionNames();
-  companionFilterList.innerHTML = names.map(n => `<option value="${n}"></option>`).join("");
-}
+const companionFilterChipList = document.getElementById("companionFilterChipList");
 
-companionFilterInput.addEventListener("input", () => {
-  currentCompanionFilter = companionFilterInput.value.trim();
-  render();
-});
+function renderCompanionFilterChips() {
+  const counts = computeCompanionCounts();
+  const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, "ja"));
+
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = "companion-filter-item" + (currentCompanionFilter ? "" : " active");
+  allBtn.textContent = "すべて";
+  allBtn.addEventListener("click", () => {
+    currentCompanionFilter = "";
+    companionFilterPopover.style.display = "none";
+    render();
+  });
+
+  companionFilterChipList.innerHTML = "";
+  companionFilterChipList.appendChild(allBtn);
+
+  names.forEach(name => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "companion-filter-item" + (currentCompanionFilter === name ? " active" : "");
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = name;
+    const countSpan = document.createElement("span");
+    countSpan.className = "count";
+    countSpan.textContent = `${counts[name]}件`;
+    item.appendChild(nameSpan);
+    item.appendChild(countSpan);
+    item.addEventListener("click", () => {
+      currentCompanionFilter = name;
+      companionFilterPopover.style.display = "none";
+      render();
+    });
+    companionFilterChipList.appendChild(item);
+  });
+}
 
 function getFrequentPlayerNames(limit, courseFilter) {
   const list = loadReservations();
@@ -3197,9 +3363,10 @@ function render() {
     list = list.filter(r => (r.players || []).some(p => p && p.includes(currentCompanionFilter)));
   }
 
-  updateCompanionFilterOptions();
-  updateResFilterBadge();
+  renderCompanionFilterChips();
+  updateFilterBadges();
   updateYearStatsUI();
+  updateShareStatsUI();
 
   const container = document.getElementById("resList");
   const emptyMsg = document.getElementById("emptyMsg");
