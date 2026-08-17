@@ -164,6 +164,45 @@
   }
   .view-mode-btn:last-child { border-right: none; }
   .view-mode-btn.active { background: var(--green); color: #fff; }
+  .year-stats-wrap { position: relative; flex-shrink: 0; }
+  .year-stats-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eaf3de;
+    color: #27500a;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .year-stats-pill:hover { background: #dcecc9; }
+  .year-stats-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 12px 14px;
+    width: 200px;
+    z-index: 950;
+    text-align: left;
+  }
+  .year-stats-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .year-stats-table td { padding: 3px 0; }
+  .year-stats-table td.stat-label { color: var(--muted); }
+  .year-stats-table td.stat-value { text-align: right; font-weight: 500; }
+  .year-stats-table tr.stat-total td {
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    color: var(--green-dark);
+    font-weight: 600;
+  }
   .res-filter-wrap { position: relative; flex-shrink: 0; }
   .res-filter-badge {
     display: inline-block;
@@ -878,10 +917,21 @@
   <div class="card">
     <h2>予約一覧</h2>
     <div class="filter-row">
-      <div class="view-mode-group" id="viewModeGroup">
-        <button type="button" class="view-mode-btn active" data-mode="upcoming">今後</button>
-        <button type="button" class="view-mode-btn" data-mode="past">過去</button>
-        <button type="button" class="view-mode-btn" data-mode="calendar">月次</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="view-mode-group" id="viewModeGroup">
+          <button type="button" class="view-mode-btn active" data-mode="upcoming">今後</button>
+          <button type="button" class="view-mode-btn" data-mode="past">過去</button>
+          <button type="button" class="view-mode-btn" data-mode="calendar">月次</button>
+        </div>
+        <div class="year-stats-wrap" id="yearStatsWrap" style="display:none;">
+          <button type="button" class="year-stats-pill" id="yearStatsPill">
+            <span id="yearStatsPillLabel">今年0回プレー</span>
+            <span style="font-size:10px;">▾</span>
+          </button>
+          <div class="year-stats-popover" id="yearStatsPopover" style="display:none;">
+            <table class="year-stats-table" id="yearStatsTable"></table>
+          </div>
+        </div>
       </div>
       <div class="res-filter-wrap">
         <button type="button" class="btn-secondary" id="resFilterBtn">絞り込み<span class="res-filter-badge" id="resFilterBadge" style="display:none;"></span></button>
@@ -2826,10 +2876,61 @@ function updateViewModeUI() {
   document.querySelectorAll(".view-mode-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
+  updateYearStatsUI();
 }
 
 document.querySelectorAll(".view-mode-btn").forEach(btn => {
   btn.addEventListener("click", () => setViewMode(btn.dataset.mode));
+});
+
+// ---- 過去表示時のみ：今年の予約回数（コース別内訳つき）----
+// 「今年」は現在の年、「回数」はすでにプレー日を過ぎた予約の件数を指す。
+// 一覧の絞り込み（コース・同伴者）とは独立して、年間の実績として常に全件を集計する。
+function computeYearPlayStats() {
+  const today = todayStr();
+  const year = today.slice(0, 4);
+  const list = loadReservations().filter(r => r.playDate && r.playDate < today && r.playDate.slice(0, 4) === year);
+  const counts = {};
+  KNOWN_COURSES.forEach(c => { counts[c] = 0; });
+  let other = 0;
+  list.forEach(r => {
+    if (r.course && KNOWN_COURSES.includes(r.course)) {
+      counts[r.course]++;
+    } else {
+      other++;
+    }
+  });
+  return { year, total: list.length, counts, other };
+}
+
+const yearStatsWrap = document.getElementById("yearStatsWrap");
+const yearStatsPill = document.getElementById("yearStatsPill");
+const yearStatsPillLabel = document.getElementById("yearStatsPillLabel");
+const yearStatsPopover = document.getElementById("yearStatsPopover");
+const yearStatsTable = document.getElementById("yearStatsTable");
+
+function updateYearStatsUI() {
+  const showStats = showPast && !monthCalendarVisible;
+  yearStatsWrap.style.display = showStats ? "inline-flex" : "none";
+  if (!showStats) {
+    yearStatsPopover.style.display = "none";
+    return;
+  }
+  const stats = computeYearPlayStats();
+  yearStatsPillLabel.textContent = `今年${stats.total}回プレー`;
+  const rows = KNOWN_COURSES.map(c => `<tr><td class="stat-label">${c}</td><td class="stat-value">${stats.counts[c]}回</td></tr>`).join("");
+  const otherRow = `<tr><td class="stat-label">その他</td><td class="stat-value">${stats.other}回</td></tr>`;
+  const totalRow = `<tr class="stat-total"><td class="stat-label">合計</td><td class="stat-value">${stats.total}回</td></tr>`;
+  yearStatsTable.innerHTML = rows + otherRow + totalRow;
+}
+
+yearStatsPill.addEventListener("click", (e) => {
+  e.stopPropagation();
+  yearStatsPopover.style.display = yearStatsPopover.style.display === "block" ? "none" : "block";
+});
+yearStatsPopover.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => {
+  yearStatsPopover.style.display = "none";
 });
 
 // ---- 絞り込み（コース・同伴者）のポップオーバー開閉 ----
@@ -3098,6 +3199,7 @@ function render() {
 
   updateCompanionFilterOptions();
   updateResFilterBadge();
+  updateYearStatsUI();
 
   const container = document.getElementById("resList");
   const emptyMsg = document.getElementById("emptyMsg");
