@@ -240,6 +240,13 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
+    background: #fff;
+    transition: background 1.4s ease, border-color 1.4s ease;
+  }
+  .res-item.just-saved {
+    background: #eaf6ee;
+    border-color: var(--green);
+    transition: none;
   }
   .res-main {
     min-width: 0;
@@ -2450,6 +2457,32 @@ competitionCheckbox.addEventListener("change", () => {
   updateBookingReminderInfoUI();
 });
 
+// ---- 保存後、変更・追加した予約の位置までスクロールして分かりやすくする ----
+// 一覧は「今後／過去」表示・月次カレンダー表示・コースや同伴者の絞り込みで
+// 内容が変わるため、対象の予約が実際に見える状態になるよう表示モードを
+// 必要に応じて合わせてからスクロールする。
+function scrollToReservation(id) {
+  if (!id) return;
+  const target = loadReservations().find(r => r.id === id);
+  if (!target) return;
+
+  const isPast = target.playDate < todayStr();
+  if (monthCalendarVisible) {
+    showPast = isPast;
+    toggleMonthCalendarView(false);
+  } else if (showPast !== isPast) {
+    showPast = isPast;
+    render();
+  }
+  updateViewModeUI();
+
+  const el = document.querySelector(`[data-res-id="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add("just-saved");
+  setTimeout(() => el.classList.remove("just-saved"), 1600);
+}
+
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const course = getCourseValue();
   const courseName = getCourseNameValue();
@@ -2535,8 +2568,10 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 
   saveReservations(list);
   saveBtn.disabled = false;
+  const savedId = targetReservation.id;
   resetForm();
   render();
+  scrollToReservation(savedId);
 });
 
 document.getElementById("cancelBtn").addEventListener("click", resetForm);
@@ -3077,6 +3112,7 @@ function render() {
   list.forEach(r => {
     const item = document.createElement("div");
     item.className = "res-item" + (!showPast && r.playDate < today ? " past" : "");
+    item.dataset.resId = r.id;
 
     const main = document.createElement("div");
     main.className = "res-main";
