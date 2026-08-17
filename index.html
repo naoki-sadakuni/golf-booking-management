@@ -3008,11 +3008,21 @@ function computeFilteredUpcomingList() {
     .sort((a, b) => (a.playDate + (a.startTime || "")).localeCompare(b.playDate + (b.startTime || "")));
 }
 
+// 共有パネル用の日付表示：今年の日付は年を省略し、翌年以降は年を表示する
+// （例: 今年なら「11月30日（月）」、翌年以降なら「2027年1月5日（火）」）。
+function formatDateLabelForSharePanel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+  const currentYear = new Date().getFullYear();
+  const yearPart = d.getFullYear() === currentYear ? "" : `${d.getFullYear()}年`;
+  return `${yearPart}${d.getMonth() + 1}月${d.getDate()}日（${days[d.getDay()]}）`;
+}
+
 // 表示順は「年月日→ゴルフ場→スタート時間」。スタート時間は「確定」の予約のみ表示し、
 // それ以外（未予約・抽選待ちなど）は「（未予約）」と表示する。
 function buildScheduleLines(list) {
   return list.map(r => {
-    let line = formatDateLabel(r.playDate);
+    let line = formatDateLabelForSharePanel(r.playDate);
     let courseLine = "";
     if (r.course) {
       if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
