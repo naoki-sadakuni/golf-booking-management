@@ -216,10 +216,14 @@
     border-radius: 10px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     padding: 14px 16px;
-    width: 260px;
+    width: min(260px, calc(100vw - 32px));
     z-index: 950;
     text-align: left;
   }
+  /* 同伴者ボタンは絞り込みグループの左側にあるため、右寄せ（right:0）だと
+     ボタンより左に大きくはみ出してスマホ画面外に出てしまう。左寄せに変えて
+     ボタン自身の位置から右方向に開くようにする。 */
+  #companionFilterPopover { left: 0; right: auto; }
   .filter-chip {
     background: #eceeec;
     color: var(--muted);
@@ -253,6 +257,24 @@
   .companion-filter-item .count { color: var(--muted); font-size: 12px; }
   .companion-filter-item.active { background: var(--green); color: #fff; }
   .companion-filter-item.active .count { color: rgba(255, 255, 255, 0.85); }
+  .companion-share-panel {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .companion-share-title {
+    font-size: 13px;
+    color: var(--green-dark);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .companion-share-list {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.8;
+    white-space: pre-line;
+  }
   .full-width { grid-column: 1 / -1; }
   .players-col {
     grid-column: 1 / -1;
@@ -951,17 +973,6 @@
             <table class="year-stats-table" id="yearStatsTable"></table>
           </div>
         </div>
-        <div class="year-stats-wrap" id="shareStatsWrap" style="display:none;">
-          <button type="button" class="year-stats-pill" id="shareStatsPill">
-            <span id="shareStatsPillLabel">共有</span>
-            <span style="font-size:10px;">▾</span>
-          </button>
-          <div class="year-stats-popover" id="shareStatsPopover" style="display:none;">
-            <div id="shareStatsPreview" style="font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:12px; white-space:pre-line;"></div>
-            <button type="button" class="btn-primary" id="shareStatsCopyBtn" style="width:100%;">コピーする</button>
-            <div id="shareStatsCopiedMsg" style="font-size:12px; color:var(--green-dark); margin-top:6px; display:none;">コピーしました</div>
-          </div>
-        </div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="res-filter-wrap">
@@ -989,6 +1000,12 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="companion-share-panel" id="companionSharePanel" style="display:none;">
+      <div class="companion-share-title" id="companionSharePanelTitle"></div>
+      <div class="companion-share-list" id="companionSharePanelList"></div>
+      <button type="button" class="btn-primary" id="companionSharePanelCopyBtn" style="width:100%; margin-top:12px;">コピーする</button>
+      <div id="companionSharePanelCopiedMsg" style="font-size:12px; color:var(--green-dark); margin-top:6px; display:none;">コピーしました</div>
     </div>
     <div class="res-list" id="resList"></div>
     <div class="empty" id="emptyMsg" style="display:none;">予約はまだありません</div>
@@ -2916,7 +2933,7 @@ function updateViewModeUI() {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
   updateYearStatsUI();
-  updateShareStatsUI();
+  updateCompanionSharePanel();
   renderCompanionFilterChips();
 }
 
@@ -2974,7 +2991,8 @@ document.addEventListener("click", () => {
   yearStatsPopover.style.display = "none";
 });
 
-// ---- 「今後」表示中に同伴者で絞り込んでいる場合のみ：今後の予定をテキストでコピー共有 ----
+// ---- 「今後」表示中に同伴者で絞り込んでいる場合のみ：一覧の上に予定と
+// 「コピーする」ボタンを常時表示する（ピルやポップオーバーは使わない）----
 function computeCompanionUpcomingList(name) {
   const today = todayStr();
   return loadReservations()
@@ -2982,11 +3000,17 @@ function computeCompanionUpcomingList(name) {
     .sort((a, b) => (a.playDate + (a.startTime || "")).localeCompare(b.playDate + (b.startTime || "")));
 }
 
-function buildCompanionShareText(name, list) {
-  const lines = [`${name}さんとの今後の予定（${list.length}件）`, ""];
-  list.forEach(r => {
+// スタート時間は「確定」の予約のみ表示する。それ以外（未予約・抽選待ちなど）は
+// まだ時間が決まっていないため「（未予約）」と表示する。
+function buildCompanionScheduleLines(list) {
+  return list.map(r => {
     let line = formatDateLabel(r.playDate);
-    if (r.startTime) line += ` ${r.startTime}〜`;
+    const status = r.status || "確定";
+    if (status === "確定" && r.startTime) {
+      line += ` ${r.startTime}〜`;
+    } else {
+      line += " （未予約）";
+    }
     let courseLine = "";
     if (r.course) {
       if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
@@ -2998,49 +3022,45 @@ function buildCompanionShareText(name, list) {
       }
     }
     if (courseLine) line += ` ${courseLine}`;
-    lines.push(line);
+    return line;
   });
+}
+
+function buildCompanionShareText(name, list) {
+  const lines = [`${name}さんとの今後の予定（${list.length}件）`, "", ...buildCompanionScheduleLines(list)];
   return lines.join("\n");
 }
 
-const shareStatsWrap = document.getElementById("shareStatsWrap");
-const shareStatsPill = document.getElementById("shareStatsPill");
-const shareStatsPillLabel = document.getElementById("shareStatsPillLabel");
-const shareStatsPopover = document.getElementById("shareStatsPopover");
-const shareStatsPreview = document.getElementById("shareStatsPreview");
-const shareStatsCopyBtn = document.getElementById("shareStatsCopyBtn");
-const shareStatsCopiedMsg = document.getElementById("shareStatsCopiedMsg");
+const companionSharePanel = document.getElementById("companionSharePanel");
+const companionSharePanelTitle = document.getElementById("companionSharePanelTitle");
+const companionSharePanelList = document.getElementById("companionSharePanelList");
+const companionSharePanelCopyBtn = document.getElementById("companionSharePanelCopyBtn");
+const companionSharePanelCopiedMsg = document.getElementById("companionSharePanelCopiedMsg");
 
-function updateShareStatsUI() {
+function updateCompanionSharePanel() {
   const mode = monthCalendarVisible ? "calendar" : (showPast ? "past" : "upcoming");
-  const showShare = mode === "upcoming" && !!currentCompanionFilter;
-  shareStatsWrap.style.display = showShare ? "inline-flex" : "none";
-  if (!showShare) {
-    shareStatsPopover.style.display = "none";
-    return;
-  }
-  shareStatsPillLabel.textContent = `${currentCompanionFilter}さんへ共有`;
+  const show = mode === "upcoming" && !!currentCompanionFilter;
+  companionSharePanel.style.display = show ? "block" : "none";
+  if (!show) return;
+
   const list = computeCompanionUpcomingList(currentCompanionFilter);
-  shareStatsPreview.textContent = list.length
-    ? buildCompanionShareText(currentCompanionFilter, list)
-    : "今後の予定はありません。";
-  shareStatsCopiedMsg.style.display = "none";
+  companionSharePanelTitle.textContent = `${currentCompanionFilter}さんとの今後の予定（${list.length}件）`;
+  companionSharePanelCopiedMsg.style.display = "none";
+  if (list.length === 0) {
+    companionSharePanelList.textContent = "今後の予定はありません。";
+    companionSharePanelCopyBtn.style.display = "none";
+  } else {
+    companionSharePanelList.textContent = buildCompanionScheduleLines(list).join("\n");
+    companionSharePanelCopyBtn.style.display = "block";
+  }
 }
 
-shareStatsPill.addEventListener("click", (e) => {
-  e.stopPropagation();
-  shareStatsPopover.style.display = shareStatsPopover.style.display === "block" ? "none" : "block";
-});
-shareStatsPopover.addEventListener("click", (e) => e.stopPropagation());
-document.addEventListener("click", () => {
-  shareStatsPopover.style.display = "none";
-});
-
-shareStatsCopyBtn.addEventListener("click", async () => {
-  const text = shareStatsPreview.textContent;
+companionSharePanelCopyBtn.addEventListener("click", async () => {
+  const list = computeCompanionUpcomingList(currentCompanionFilter);
+  const text = buildCompanionShareText(currentCompanionFilter, list);
   try {
     await navigator.clipboard.writeText(text);
-    shareStatsCopiedMsg.style.display = "block";
+    companionSharePanelCopiedMsg.style.display = "block";
   } catch (e) {
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -3050,7 +3070,7 @@ shareStatsCopyBtn.addEventListener("click", async () => {
     ta.select();
     try {
       document.execCommand("copy");
-      shareStatsCopiedMsg.style.display = "block";
+      companionSharePanelCopiedMsg.style.display = "block";
     } catch (e2) {
       // コピーに対応していない環境では静かに諦める
     }
@@ -3385,7 +3405,7 @@ function render() {
   renderCompanionFilterChips();
   updateFilterBadges();
   updateYearStatsUI();
-  updateShareStatsUI();
+  updateCompanionSharePanel();
 
   const container = document.getElementById("resList");
   const emptyMsg = document.getElementById("emptyMsg");
