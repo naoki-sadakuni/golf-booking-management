@@ -179,6 +179,8 @@
     cursor: pointer;
   }
   .year-stats-pill:hover { background: #dcecc9; }
+  .year-stats-pill.neutral { background: #f4f6f4; color: var(--muted); }
+  .year-stats-pill.neutral:hover { background: #e8ebe8; }
   .year-stats-popover {
     position: absolute;
     top: 100%;
@@ -204,14 +206,6 @@
     font-weight: 600;
   }
   .res-filter-wrap { position: relative; flex-shrink: 0; }
-  .res-filter-badge {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--green);
-    margin-left: 6px;
-  }
   .res-filter-popover {
     position: absolute;
     top: 100%;
@@ -971,13 +965,19 @@
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <div class="res-filter-wrap">
-          <button type="button" class="btn-secondary" id="companionFilterBtn">同伴者<span class="res-filter-badge" id="companionFilterBadge" style="display:none;"></span></button>
+          <button type="button" class="year-stats-pill neutral" id="companionFilterBtn">
+            <span id="companionFilterBtnLabel">同伴者</span>
+            <span style="font-size:10px;">▾</span>
+          </button>
           <div class="res-filter-popover" id="companionFilterPopover" style="display:none;">
             <div class="companion-filter-list" id="companionFilterChipList"></div>
           </div>
         </div>
         <div class="res-filter-wrap">
-          <button type="button" class="btn-secondary" id="courseFilterBtn">ゴルフ場<span class="res-filter-badge" id="courseFilterBadge" style="display:none;"></span></button>
+          <button type="button" class="year-stats-pill neutral" id="courseFilterBtn">
+            <span id="courseFilterBtnLabel">ゴルフ場</span>
+            <span style="font-size:10px;">▾</span>
+          </button>
           <div class="res-filter-popover" id="courseFilterPopover" style="display:none;">
             <div class="course-filter-row" id="courseFilterRow">
               <button type="button" class="filter-chip active" data-course="">すべて</button>
@@ -3081,9 +3081,28 @@ document.addEventListener("click", () => {
   courseFilterPopover.style.display = "none";
 });
 
+// ---- 同伴者・ゴルフ場ボタンに選択中の内容をラベル表示し、絞り込み中は色を変える ----
 function updateFilterBadges() {
-  document.getElementById("companionFilterBadge").style.display = currentCompanionFilter ? "inline-block" : "none";
-  document.getElementById("courseFilterBadge").style.display = currentCourseFilter ? "inline-block" : "none";
+  const companionBtn = document.getElementById("companionFilterBtn");
+  const companionLabel = document.getElementById("companionFilterBtnLabel");
+  if (currentCompanionFilter) {
+    companionLabel.textContent = `同伴者: ${currentCompanionFilter}`;
+    companionBtn.classList.remove("neutral");
+  } else {
+    companionLabel.textContent = "同伴者";
+    companionBtn.classList.add("neutral");
+  }
+
+  const courseBtn = document.getElementById("courseFilterBtn");
+  const courseLabel = document.getElementById("courseFilterBtnLabel");
+  if (currentCourseFilter) {
+    const label = currentCourseFilter === "__other__" ? "その他" : courseAbbrev(currentCourseFilter);
+    courseLabel.textContent = `ゴルフ場: ${label}`;
+    courseBtn.classList.remove("neutral");
+  } else {
+    courseLabel.textContent = "ゴルフ場";
+    courseBtn.classList.add("neutral");
+  }
 }
 
 document.getElementById("resCalPrevMonth").addEventListener("click", () => {
