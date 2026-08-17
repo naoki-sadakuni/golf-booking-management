@@ -220,10 +220,6 @@
     z-index: 950;
     text-align: left;
   }
-  /* 同伴者ボタンは絞り込みグループの左側にあるため、右寄せ（right:0）だと
-     ボタンより左に大きくはみ出してスマホ画面外に出てしまう。左寄せに変えて
-     ボタン自身の位置から右方向に開くようにする。 */
-  #companionFilterPopover { left: 0; right: auto; }
   .filter-chip {
     background: #eceeec;
     color: var(--muted);
@@ -1725,6 +1721,7 @@ document.querySelectorAll("#courseFilterRow .filter-chip").forEach(btn => {
     document.querySelectorAll("#courseFilterRow .filter-chip").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     currentCourseFilter = btn.dataset.course;
+    document.getElementById("courseFilterPopover").style.display = "none";
     render();
   });
 });
@@ -2991,26 +2988,31 @@ document.addEventListener("click", () => {
   yearStatsPopover.style.display = "none";
 });
 
-// ---- 「今後」表示中に同伴者で絞り込んでいる場合のみ：一覧の上に予定と
-// 「コピーする」ボタンを常時表示する（ピルやポップオーバーは使わない）----
-function computeCompanionUpcomingList(name) {
+// ---- 「今後」表示中に同伴者・ゴルフ場のいずれかで絞り込んでいる場合：一覧の上に
+// 予定と「コピーする」ボタンを常時表示する（ピルやポップオーバーは使わない）----
+function computeFilteredUpcomingList() {
   const today = todayStr();
   return loadReservations()
-    .filter(r => r.playDate && r.playDate >= today && (r.players || []).some(p => p && p.includes(name)))
+    .filter(r => {
+      if (!r.playDate || r.playDate < today) return false;
+      if (currentCourseFilter === "__other__") {
+        if (!r.course || KNOWN_COURSES.includes(r.course)) return false;
+      } else if (currentCourseFilter && r.course !== currentCourseFilter) {
+        return false;
+      }
+      if (currentCompanionFilter && !(r.players || []).some(p => p && p.includes(currentCompanionFilter))) {
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => (a.playDate + (a.startTime || "")).localeCompare(b.playDate + (b.startTime || "")));
 }
 
-// スタート時間は「確定」の予約のみ表示する。それ以外（未予約・抽選待ちなど）は
-// まだ時間が決まっていないため「（未予約）」と表示する。
-function buildCompanionScheduleLines(list) {
+// 表示順は「年月日→ゴルフ場→スタート時間」。スタート時間は「確定」の予約のみ表示し、
+// それ以外（未予約・抽選待ちなど）は「（未予約）」と表示する。
+function buildScheduleLines(list) {
   return list.map(r => {
     let line = formatDateLabel(r.playDate);
-    const status = r.status || "確定";
-    if (status === "確定" && r.startTime) {
-      line += ` ${r.startTime}〜`;
-    } else {
-      line += " （未予約）";
-    }
     let courseLine = "";
     if (r.course) {
       if (r.courseName && r.course === PACIFIC_CLUB_NAME) {
@@ -3022,13 +3024,28 @@ function buildCompanionScheduleLines(list) {
       }
     }
     if (courseLine) line += ` ${courseLine}`;
+    const status = r.status || "確定";
+    if (status === "確定" && r.startTime) {
+      line += ` ${r.startTime}〜`;
+    } else {
+      line += " （未予約）";
+    }
     return line;
   });
 }
 
-function buildCompanionShareText(name, list) {
-  const lines = [`${name}さんとの今後の予定（${list.length}件）`, "", ...buildCompanionScheduleLines(list)];
-  return lines.join("\n");
+function buildSharePanelTitle(count) {
+  const courseLabel = currentCourseFilter
+    ? (currentCourseFilter === "__other__" ? "その他のゴルフ場" : currentCourseFilter)
+    : "";
+  if (courseLabel && currentCompanionFilter) {
+    return `${courseLabel} × ${currentCompanionFilter}さんとの今後の予定（${count}件）`;
+  } else if (courseLabel) {
+    return `${courseLabel}の今後の予定（${count}件）`;
+  } else if (currentCompanionFilter) {
+    return `${currentCompanionFilter}さんとの今後の予定（${count}件）`;
+  }
+  return `今後の予定（${count}件）`;
 }
 
 const companionSharePanel = document.getElementById("companionSharePanel");
@@ -3039,25 +3056,25 @@ const companionSharePanelCopiedMsg = document.getElementById("companionSharePane
 
 function updateCompanionSharePanel() {
   const mode = monthCalendarVisible ? "calendar" : (showPast ? "past" : "upcoming");
-  const show = mode === "upcoming" && !!currentCompanionFilter;
+  const show = mode === "upcoming" && !!(currentCourseFilter || currentCompanionFilter);
   companionSharePanel.style.display = show ? "block" : "none";
   if (!show) return;
 
-  const list = computeCompanionUpcomingList(currentCompanionFilter);
-  companionSharePanelTitle.textContent = `${currentCompanionFilter}さんとの今後の予定（${list.length}件）`;
+  const list = computeFilteredUpcomingList();
+  companionSharePanelTitle.textContent = buildSharePanelTitle(list.length);
   companionSharePanelCopiedMsg.style.display = "none";
   if (list.length === 0) {
     companionSharePanelList.textContent = "今後の予定はありません。";
     companionSharePanelCopyBtn.style.display = "none";
   } else {
-    companionSharePanelList.textContent = buildCompanionScheduleLines(list).join("\n");
+    companionSharePanelList.textContent = buildScheduleLines(list).join("\n");
     companionSharePanelCopyBtn.style.display = "block";
   }
 }
 
 companionSharePanelCopyBtn.addEventListener("click", async () => {
-  const list = computeCompanionUpcomingList(currentCompanionFilter);
-  const text = buildCompanionShareText(currentCompanionFilter, list);
+  const list = computeFilteredUpcomingList();
+  const text = [buildSharePanelTitle(list.length), "", ...buildScheduleLines(list)].join("\n");
   try {
     await navigator.clipboard.writeText(text);
     companionSharePanelCopiedMsg.style.display = "block";
@@ -3079,11 +3096,33 @@ companionSharePanelCopyBtn.addEventListener("click", async () => {
 });
 
 // ---- 絞り込み（同伴者・コース）ボタンそれぞれのポップオーバー開閉 ----
+// ポップオーバーはボタンの右端に揃えて開くのが基本だが、ボタンが画面の
+// 左寄り・右寄りどちらにあっても画面外にはみ出さないよう、開いた直後に
+// 実際の位置を測って必要なら左右にずらす。
+function positionFilterPopover(popoverEl) {
+  const margin = 12;
+  const wrapEl = popoverEl.parentElement;
+  popoverEl.style.left = "auto";
+  popoverEl.style.right = "0";
+  const wrapRect = wrapEl.getBoundingClientRect();
+  const popRect = popoverEl.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  if (popRect.left < margin) {
+    popoverEl.style.right = "auto";
+    popoverEl.style.left = `${margin - wrapRect.left}px`;
+  } else if (popRect.right > viewportWidth - margin) {
+    popoverEl.style.right = "auto";
+    popoverEl.style.left = `${(viewportWidth - margin - popRect.width) - wrapRect.left}px`;
+  }
+}
+
 const companionFilterBtn = document.getElementById("companionFilterBtn");
 const companionFilterPopover = document.getElementById("companionFilterPopover");
 companionFilterBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  companionFilterPopover.style.display = companionFilterPopover.style.display === "block" ? "none" : "block";
+  const willOpen = companionFilterPopover.style.display !== "block";
+  companionFilterPopover.style.display = willOpen ? "block" : "none";
+  if (willOpen) positionFilterPopover(companionFilterPopover);
 });
 companionFilterPopover.addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => {
@@ -3094,7 +3133,9 @@ const courseFilterBtn = document.getElementById("courseFilterBtn");
 const courseFilterPopover = document.getElementById("courseFilterPopover");
 courseFilterBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  courseFilterPopover.style.display = courseFilterPopover.style.display === "block" ? "none" : "block";
+  const willOpen = courseFilterPopover.style.display !== "block";
+  courseFilterPopover.style.display = willOpen ? "block" : "none";
+  if (willOpen) positionFilterPopover(courseFilterPopover);
 });
 courseFilterPopover.addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => {
