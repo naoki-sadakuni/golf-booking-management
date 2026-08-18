@@ -278,6 +278,36 @@
     flex-direction: column;
     gap: 12px;
   }
+  .player-input-wrap { position: relative; }
+  .player-suggest-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 950;
+  }
+  .player-suggest-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border);
+    font-family: inherit;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .player-suggest-item:first-child { border-top: none; }
+  .player-suggest-item:hover, .player-suggest-item:active { background: var(--bg); }
   .checkbox-row {
     display: flex;
     align-items: center;
@@ -894,17 +924,20 @@
         <div class="chip-row" id="frequentPlayersRow"></div>
       </div>
       <div class="players-col course-gate">
-        <div>
+        <div class="player-input-wrap">
           <label for="player1">同伴者1</label>
-          <input type="text" id="player1">
+          <input type="text" id="player1" autocomplete="off">
+          <div class="player-suggest-list" id="player1Suggest" style="display:none;"></div>
         </div>
-        <div>
+        <div class="player-input-wrap">
           <label for="player2">同伴者2</label>
-          <input type="text" id="player2">
+          <input type="text" id="player2" autocomplete="off">
+          <div class="player-suggest-list" id="player2Suggest" style="display:none;"></div>
         </div>
-        <div>
+        <div class="player-input-wrap">
           <label for="player3">同伴者3</label>
-          <input type="text" id="player3">
+          <input type="text" id="player3" autocomplete="off">
+          <div class="player-suggest-list" id="player3Suggest" style="display:none;"></div>
         </div>
       </div>
       <div class="full-width course-gate" id="reservationStatusWrap">
@@ -2319,6 +2352,16 @@ async function syncFromCalendar() {
         for (const date of Object.keys(byDate)) {
           const candidates = byDate[date];
           const matching = list.filter(r => r.playDate === date);
+          if (matching.length === 0) {
+            // その日付に対応する予約がもう存在しない＝予約は削除済みなのに
+            // 同伴者終日イベント（競技／組み合わせの表示等）だけが孤立して
+            // 残っているケース。削除時にIDの取り違えや紐付け漏れがあると
+            // 発生するため、ここで見つけ次第まとめて削除する。
+            for (const orphanId of candidates) {
+              await deleteFromCalendar(orphanId);
+            }
+            continue;
+          }
           if (matching.length !== 1) continue; // 同日に複数予約がある場合は誤って紐付けないよう何もしない
           const target = matching[0];
           const canonical = candidates.includes(target.companionsEventId) ? target.companionsEventId : candidates[0];
@@ -2379,7 +2422,16 @@ async function syncFromCalendar() {
         for (const title of Object.keys(idsByTitle)) {
           const candidates = idsByTitle[title];
           const expected = expectedByTitle[title] || [];
-          if (expected.length !== 1) continue; // 期待する予約が0件または複数件の場合は誤って紐付けないよう何もしない
+          if (expected.length === 0) {
+            // このタイトルを必要としている予約がもう存在しない＝予約は削除済み
+            // （または確定済みでリマインダー不要）なのに、リマインダー（「（競技）」
+            // 付きのものを含む）だけが孤立して残っているケース。見つけ次第削除する。
+            for (const orphanId of candidates) {
+              await deleteFromCalendar(orphanId);
+            }
+            continue;
+          }
+          if (expected.length !== 1) continue; // 期待する予約が複数件の場合は誤って紐付けないよう何もしない
           const { reservation: target, key } = expected[0];
           if (!target.reminderEventIds) target.reminderEventIds = {};
           const currentId = target.reminderEventIds[key];
@@ -3275,6 +3327,66 @@ function fillPlayerName(name) {
     target.value = name;
   }
 }
+
+// ---- 同伴者名の入力候補（オートコンプリート） ----
+// 過去に入力された全同伴者名を、出現回数の多い順に並べて返す（コース絞り込みなし）。
+function getAllKnownPlayerNames() {
+  const list = loadReservations();
+  const counts = {};
+  list.forEach(r => {
+    (r.players || []).forEach(name => {
+      const n = (name || "").trim();
+      if (!n) return;
+      counts[n] = (counts[n] || 0) + 1;
+    });
+  });
+  return Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, "ja"));
+}
+
+function renderPlayerSuggestions(input, listEl) {
+  const q = input.value.trim();
+  if (!q) {
+    listEl.style.display = "none";
+    listEl.innerHTML = "";
+    return;
+  }
+  const names = getAllKnownPlayerNames().filter(n => n.includes(q) && n !== q).slice(0, 8);
+  if (names.length === 0) {
+    listEl.style.display = "none";
+    listEl.innerHTML = "";
+    return;
+  }
+  listEl.innerHTML = "";
+  names.forEach(name => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "player-suggest-item";
+    item.textContent = name;
+    // mousedown + preventDefault: 入力欄のblurより先にクリックを確定させるため
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      input.value = name;
+      listEl.style.display = "none";
+      listEl.innerHTML = "";
+    });
+    listEl.appendChild(item);
+  });
+  listEl.style.display = "block";
+}
+
+function setupPlayerSuggestions() {
+  ["player1", "player2", "player3"].forEach(id => {
+    const input = document.getElementById(id);
+    const listEl = document.getElementById(id + "Suggest");
+    if (!input || !listEl) return;
+    input.addEventListener("input", () => renderPlayerSuggestions(input, listEl));
+    input.addEventListener("focus", () => renderPlayerSuggestions(input, listEl));
+    input.addEventListener("blur", () => {
+      listEl.style.display = "none";
+    });
+  });
+}
+setupPlayerSuggestions();
 
 function renderFrequentPlayers() {
   const wrap = document.getElementById("frequentPlayersWrap");
